@@ -37,7 +37,8 @@ dependencies {
 
     implementation(libs.koin.core)
 
-    implementation(libs.awsJavaSdkS3)
+    implementation(platform(libs.aws.bom))
+    implementation(libs.aws.s3)
     implementation(libs.commonsMath3)
     implementation(libs.javaJwt)
 
@@ -60,10 +61,10 @@ tasks {
         dependsOn("shadowJar")
     }
     runServer {
-        minecraftVersion("1.21.4")
+        minecraftVersion("1.21.10")
         val plugins = runPaper.downloadPluginsSpec {
             github("Test-Account666", "PlugManX", "2.4.1","PlugManX-2.4.1.jar")
-            url("https://ci.dmulloy2.net/job/ProtocolLib/lastSuccessfulBuild/artifact/build/libs/ProtocolLib.jar")
+            url("https://github.com/dmulloy2/ProtocolLib/releases/download/dev-build/ProtocolLib.jar")
             github("jpenilla","TabTPS", "v1.3.25","tabtps-spigot-1.3.25.jar")
         }
         downloadPlugins {

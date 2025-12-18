@@ -1,8 +1,8 @@
 package dev.nikomaru.minestamp.player
 
-import com.amazonaws.services.s3.model.ObjectMetadata
-import com.amazonaws.services.s3.model.PutObjectRequest
 import dev.nikomaru.minestamp.MineStamp
+import software.amazon.awssdk.core.sync.RequestBody
+import software.amazon.awssdk.services.s3.model.*
 import dev.nikomaru.minestamp.data.LocalConfig
 import dev.nikomaru.minestamp.data.PlayerData
 import dev.nikomaru.minestamp.data.PlayerDefaultEmojiConfigData
@@ -30,11 +30,19 @@ class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {
         val s3Client = getS3Client()
         val bucketName = get<LocalConfig>().s3Config!!.bucket
         val key = "player/${player.uniqueId}.json"
-        if (!s3Client.doesObjectExist(bucketName, key)) {
+        try {
+            s3Client.headObject(HeadObjectRequest.builder().bucket(bucketName).key(key).build())
+        } catch (e: NoSuchKeyException) {
             val data = PlayerData(
                 emoji = listOf()
             )
-            s3Client.putObject(bucketName, key, json.encodeToString(data))
+            s3Client.putObject(
+                PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build(),
+                RequestBody.fromString(json.encodeToString(data))
+            )
         }
     }
 
@@ -42,7 +50,10 @@ class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {
         val s3Client = getS3Client()
         val bucketName = get<LocalConfig>().s3Config!!.bucket
         val key = "player/${player.uniqueId}.json"
-        val playerData = json.decodeFromString(PlayerData.serializer(), s3Client.getObjectAsString(bucketName, key))
+        val playerData = json.decodeFromString(
+            PlayerData.serializer(),
+            s3Client.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketName).key(key).build()).asUtf8String()
+        )
         playerEmoji[player.uniqueId] = playerData.emoji
     }
 
@@ -63,14 +74,16 @@ class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {
         val data = PlayerData(
             emoji = newStamp
         )
-        val inputStream =  json.encodeToString(data).byteInputStream()
-        val metadata = ObjectMetadata()
-        metadata.contentLength = inputStream.available().toLong()
-        metadata.contentType = "application/json"
-        metadata.cacheControl = "max-age=0"
-        val req = PutObjectRequest(bucketName, key, inputStream, metadata)
-        req.requestClientOptions.readLimit = 1024 * 1024 * 10
-        s3Client.putObject(req)
+        val content = json.encodeToString(data)
+        s3Client.putObject(
+            PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .contentType("application/json")
+                .cacheControl("max-age=0")
+                .build(),
+            RequestBody.fromString(content)
+        )
     }
 
     override fun removeStamp(player: Player, stamp: Stamp) {
@@ -84,9 +97,13 @@ class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {
         val data = PlayerData(
             emoji = newStamp
         )
-        val req = PutObjectRequest(bucketName, key, json.encodeToString(data).byteInputStream(), null)
-        req.requestClientOptions.readLimit = 1024 * 1024 * 10
-        s3Client.putObject(req)
+        s3Client.putObject(
+            PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build(),
+            RequestBody.fromString(json.encodeToString(data))
+        )
     }
 
     override fun availableStamp(player: Player, stamp: Stamp): Boolean {

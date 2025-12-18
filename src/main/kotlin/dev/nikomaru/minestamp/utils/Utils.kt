@@ -1,16 +1,16 @@
 package dev.nikomaru.minestamp.utils
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider
-import com.amazonaws.auth.BasicAWSCredentials
-import com.amazonaws.client.builder.AwsClientBuilder
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import dev.nikomaru.minestamp.data.LocalConfig
 import kotlinx.serialization.json.Json
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.S3Configuration
+import java.net.URI
 
 
 object Utils: KoinComponent {
@@ -22,15 +22,20 @@ object Utils: KoinComponent {
     }
     val mm = MiniMessage.miniMessage()
 
-    fun getS3Client(): AmazonS3 {
+    fun getS3Client(): S3Client {
         val config = get<LocalConfig>()
         val s3Config = config.s3Config ?: throw IllegalStateException("S3 config is not found")
-        val endpointConfiguration = AwsClientBuilder.EndpointConfiguration(
-            s3Config.url, Regions.DEFAULT_REGION.name
-        )
-        val credential = BasicAWSCredentials(s3Config.accessKey, s3Config.secretKey)
-        val s3Client: AmazonS3 = AmazonS3ClientBuilder.standard().withEndpointConfiguration(endpointConfiguration)
-            .withPathStyleAccessEnabled(true).withCredentials(AWSStaticCredentialsProvider(credential)).build()
+        val credential = AwsBasicCredentials.create(s3Config.accessKey, s3Config.secretKey)
+        val s3Client: S3Client = S3Client.builder()
+            .endpointOverride(URI.create(s3Config.url))
+            .region(Region.AWS_GLOBAL)
+            .credentialsProvider(StaticCredentialsProvider.create(credential))
+            .serviceConfiguration(
+                S3Configuration.builder()
+                    .pathStyleAccessEnabled(true)
+                    .build()
+            )
+            .build()
 
         return s3Client
     }

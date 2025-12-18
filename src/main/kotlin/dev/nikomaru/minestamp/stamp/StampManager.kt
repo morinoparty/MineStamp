@@ -7,6 +7,8 @@ import org.apache.commons.math3.distribution.EnumeratedDistribution
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.component.inject
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import java.util.*
 
 object StampManager: KoinComponent {
@@ -29,7 +31,16 @@ object StampManager: KoinComponent {
         } else {
             val s3Client = dev.nikomaru.minestamp.utils.Utils.getS3Client()
             val s3Config = get<LocalConfig>().s3Config!!
-            if (s3Client.doesObjectExist(s3Config.bucket, "image/${shortCode.removePrefix("!")}").not()) return null
+            try {
+                s3Client.headObject(
+                    HeadObjectRequest.builder()
+                        .bucket(s3Config.bucket)
+                        .key("image/${shortCode.removePrefix("!")}")
+                        .build()
+                )
+            } catch (e: NoSuchKeyException) {
+                return null
+            }
         }
         return ImageStamp(shortCode)
     }

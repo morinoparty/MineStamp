@@ -1,7 +1,8 @@
 package dev.nikomaru.minestamp.files
 
-import com.amazonaws.services.s3.model.PutObjectRequest
 import com.github.shynixn.mccoroutine.bukkit.launch
+import software.amazon.awssdk.core.sync.RequestBody
+import software.amazon.awssdk.services.s3.model.*
 import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.data.FileType
 import dev.nikomaru.minestamp.data.ImageListData
@@ -83,32 +84,45 @@ object Config: KoinComponent {
         withContext(Dispatchers.IO) {
             val s3 = getS3Client()
             val s3Config = get<LocalConfig>().s3Config ?: throw IllegalStateException("S3 config is not found")
-            if (!s3.doesBucketExistV2(s3Config.bucket)) {
-                s3.createBucket(s3Config.bucket)
+            // Create bucket if it doesn't exist
+            try {
+                s3.headBucket(HeadBucketRequest.builder().bucket(s3Config.bucket).build())
+            } catch (e: NoSuchBucketException) {
+                s3.createBucket(CreateBucketRequest.builder().bucket(s3Config.bucket).build())
             }
-            if (!s3.doesObjectExist(s3Config.bucket, "random.json")) {
-                val request = PutObjectRequest(
-                    s3Config.bucket, "random.json", plugin.javaClass.getResourceAsStream("/default-random.json"), null
-                )
-                request.requestClientOptions.readLimit = 10485760
+            // Check and create random.json if it doesn't exist
+            try {
+                s3.headObject(HeadObjectRequest.builder().bucket(s3Config.bucket).key("random.json").build())
+            } catch (e: NoSuchKeyException) {
+                val inputStream = plugin.javaClass.getResourceAsStream("/default-random.json")
+                    ?: throw IllegalStateException("default-random.json is not found")
                 s3.putObject(
-                    request
+                    PutObjectRequest.builder()
+                        .bucket(s3Config.bucket)
+                        .key("random.json")
+                        .build(),
+                    RequestBody.fromInputStream(inputStream, inputStream.available().toLong())
                 )
             }
-            if (!s3.doesObjectExist(s3Config.bucket, "player-default.json")) {
+            // Check and create player-default.json if it doesn't exist
+            try {
+                s3.headObject(HeadObjectRequest.builder().bucket(s3Config.bucket).key("player-default.json").build())
+            } catch (e: NoSuchKeyException) {
                 val defaultPlayerConfig = PlayerDefaultEmojiConfigData()
+                val content = json.encodeToString(defaultPlayerConfig)
                 s3.putObject(
-                    s3Config.bucket,
-                    "player-default.json",
-                    json.encodeToString(defaultPlayerConfig).byteInputStream(),
-                    null
+                    PutObjectRequest.builder()
+                        .bucket(s3Config.bucket)
+                        .key("player-default.json")
+                        .build(),
+                    RequestBody.fromString(content)
                 )
             }
             val randomConfig = json.decodeFromString<HashMap<String, Int>>(
-                s3.getObjectAsString(s3Config.bucket, "random.json")
+                s3.getObjectAsBytes(GetObjectRequest.builder().bucket(s3Config.bucket).key("random.json").build()).asUtf8String()
             )
             val playerDefaultConfig = json.decodeFromString<PlayerDefaultEmojiConfigData>(
-                s3.getObjectAsString(s3Config.bucket, "player-default.json")
+                s3.getObjectAsBytes(GetObjectRequest.builder().bucket(s3Config.bucket).key("player-default.json").build()).asUtf8String()
             )
 
             loadKoinModules(module {
@@ -134,15 +148,29 @@ object Config: KoinComponent {
             if (get<LocalConfig>().type == FileType.S3) {
                 val s3Client = getS3Client()
                 val s3Config = get<LocalConfig>().s3Config!!
-                if (s3Client.doesBucketExistV2(s3Config.bucket).not()) {
-                    s3Client.createBucket(s3Config.bucket)
+                // Create bucket if it doesn't exist
+                try {
+                    s3Client.headBucket(HeadBucketRequest.builder().bucket(s3Config.bucket).build())
+                } catch (e: NoSuchBucketException) {
+                    s3Client.createBucket(CreateBucketRequest.builder().bucket(s3Config.bucket).build())
                 }
-                s3Client.putObject(s3Config.bucket, "image/", "")
+                // Create image/ folder
+                s3Client.putObject(
+                    PutObjectRequest.builder()
+                        .bucket(s3Config.bucket)
+                        .key("image/")
+                        .build(),
+                    RequestBody.fromString("")
+                )
                 val inputStream = plugin.javaClass.classLoader.getResourceAsStream("test.jpg")
                 if (inputStream != null) {
-                    val req = PutObjectRequest(s3Config.bucket, "image/test.jpg", inputStream, null)
-                    req.requestClientOptions.readLimit = 1024 * 1024 * 10
-                    s3Client.putObject(req)
+                    s3Client.putObject(
+                        PutObjectRequest.builder()
+                            .bucket(s3Config.bucket)
+                            .key("image/test.jpg")
+                            .build(),
+                        RequestBody.fromInputStream(inputStream, inputStream.available().toLong())
+                    )
                 } else {
                     throw IllegalStateException("test.jpg is not found")
                 }
@@ -162,8 +190,11 @@ object Config: KoinComponent {
                 val s3Client = getS3Client()
                 val s3Config = localConfig.s3Config ?: throw IllegalStateException("S3 config is not found")
                 val imageList = s3Client.listObjectsV2(
-                    s3Config.bucket, "image/"
-                ).objectSummaries.map { it.key.removePrefix("image/") }.filter { it.isNotEmpty() }
+                    ListObjectsV2Request.builder()
+                        .bucket(s3Config.bucket)
+                        .prefix("image/")
+                        .build()
+                ).contents().map { it.key().removePrefix("image/") }.filter { it.isNotEmpty() }
                 loadKoinModules(module {
                     single { ImageListData(imageList) }
                 })

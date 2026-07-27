@@ -3,9 +3,11 @@ package dev.nikomaru.minestamp.player
 import dev.nikomaru.minestamp.stamp.Stamp
 import org.bukkit.entity.Player
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 abstract class AbstractPlayerStampManager {
-    val playerEmoji = mutableMapOf<UUID, List<Stamp>>()
+    // MineAuth の HTTP スレッドからも読まれるため ConcurrentHashMap
+    val playerEmoji: MutableMap<UUID, List<Stamp>> = ConcurrentHashMap()
 
     abstract fun init(player: Player)
     abstract fun load(player: Player)

@@ -22,7 +22,7 @@ To the extent possible under law, Nikomaru has waived all copyright and related 
 You should have received a copy of the CC0 Public Domain Dedication along with this software. If not, see [http://creativecommons.org/publicdomain/zero/1.0/](http://creativecommons.org/publicdomain/zero/1.0/).
 
 
-And, this plugin include Noto-Emoji fonts are under the SIL Open Font License, version 1.1.
+And, this plugin includes emoji assets from [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (via [fluent-emoji-webfont](https://github.com/tetunori/fluent-emoji-webfont)), which are under the MIT License.
 
 ## Video
 

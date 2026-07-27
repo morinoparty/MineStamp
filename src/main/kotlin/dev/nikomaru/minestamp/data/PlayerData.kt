@@ -1,29 +1,10 @@
 package dev.nikomaru.minestamp.data
 
-import dev.nikomaru.minestamp.stamp.Stamp
-import dev.nikomaru.minestamp.stamp.StampManager
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
 
-
+// shortCode文字列のまま保持する。Stampへの解決はロード時に行い、
+// 解決できない絵文字（フォント更新等で描画不能になったもの）でもデータを失わないようにする
 @Serializable
 data class PlayerData(
-    val emoji: List<@Serializable(with = AbstractStampSerializer::class) Stamp>
+    val emoji: List<String>
 )
-
-object AbstractStampSerializer: KSerializer<Stamp> {
-    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("AbstractStamp", PrimitiveKind.STRING)
-    override fun deserialize(decoder: Decoder): Stamp {
-        val str = decoder.decodeString()
-        return StampManager.getStamp(str)!!
-    }
-
-    override fun serialize(encoder: Encoder, value: Stamp) {
-        return encoder.encodeString(value.shortCode)
-    }
-}

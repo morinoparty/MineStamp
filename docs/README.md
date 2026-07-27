@@ -1,40 +1,35 @@
-# Website
+# MineStamp Documentation
 
-This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
+[Fumadocs](https://fumadocs.dev) (Next.js) 製のドキュメントサイトです。日本語 (`ja`, デフォルト) と英語 (`en`) のバイリンガル構成です。
 
+公開ドメイン: `minestamp.plugin.morino.party` (GitHub Pages のカスタムドメイン設定で管理)
 
-### Local Development
-
-```bash
-pnpm run start
-```
-
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
-
-### Add Components
+## 開発
 
 ```bash
-pnpm dlx shadcn@latest add [component]
+pnpm install
+pnpm dev
 ```
 
+`http://localhost:3000` を開くと `/ja/docs` へリダイレクトされます。
 
-
-### Deployment
+## ビルド
 
 ```bash
-pnpm run build
+pnpm build
 ```
 
-`build` directory can be deployed to any static content hosting service.
+静的サイトが `out/` に出力されます (`output: "export"`)。`scripts/postbuild.mjs` が検索インデックスの配置とルートリダイレクト (`/` → `/ja/docs/`) を生成します。
 
-### License
+PR プレビューなどサブパス配信の場合は `BASE_PATH` 環境変数を指定してビルドします。
 
-This project is licensed under the CC0 1.0 Universal License
+```bash
+BASE_PATH=/minestamp/abc1234/docs pnpm build
+```
 
-To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.
-This software is distributed without any warranty.
+## コンテンツ
 
-You should have received a copy of the CC0 Public Domain Dedication along with this software.
-If not, see [Creative Commons](https://creativecommons.org/publicdomain/zero/1.0/).
-
-Written by morinoparty in 2025 from Japan.
+- `content/docs/**` … MDX ドキュメント本体
+  - `*.mdx` … 日本語 (デフォルト)
+  - `*.en.mdx` … 英語
+  - `meta.json` / `meta.en.json` … サイドバーの並び・カテゴリ

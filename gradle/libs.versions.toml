@@ -11,6 +11,7 @@ commonsMath3 = "3.6.1"
 protocolLib = "5.4.0"
 javaJwt = "4.6.0"
 mineauthApi = "0.3.4"
+junit = "5.14.1"
 
 [libraries]
 paper-api = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }
@@ -30,6 +31,8 @@ commonsMath3 = { group = "org.apache.commons", name = "commons-math3", version.r
 protocolLib = { group = "net.dmulloy2", name = "ProtocolLib", version.ref = "protocolLib" }
 javaJwt = { group = "com.auth0", name = "java-jwt", version.ref = "javaJwt" }
 mineauth-api = { group = "party.morino", name = "mineauth-api", version.ref = "mineauthApi" }
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
 
 [plugins]
 run-paper = { id = "xyz.jpenilla.run-paper", version = "3.0.2" }

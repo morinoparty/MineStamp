@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -57,6 +58,8 @@ dependencies {
     implementation(libs.commonsMath3)
     implementation(libs.javaJwt)
 
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 
@@ -74,6 +77,14 @@ tasks {
     }
     build {
         dependsOn("shadowJar")
+    }
+    test {
+        useJUnitPlatform()
+        testLogging {
+            showStandardStreams = true
+            events("passed", "skipped", "failed")
+            exceptionFormat = TestExceptionFormat.FULL
+        }
     }
     runServer {
         minecraftVersion("1.21.4")

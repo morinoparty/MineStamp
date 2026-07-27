@@ -1,6 +1,5 @@
 package dev.nikomaru.minestamp.stamp
 
-import com.amazonaws.services.s3.model.GetObjectRequest
 import dev.nikomaru.minestamp.data.FileType
 import dev.nikomaru.minestamp.data.LocalConfig
 import dev.nikomaru.minestamp.utils.Utils.getS3Client
@@ -18,10 +17,8 @@ class ImageStamp(shortCode: String): Stamp(shortCode), KoinComponent {
         } else {
             val s3Config = config.s3Config!!
             val s3Client = getS3Client()
-            val req = GetObjectRequest(s3Config.bucket, "image/${shortCode.removePrefix("!")}")
-            req.requestClientOptions.readLimit = 1024 * 1024 * 10
-            image = ImageIO.read(s3Client.getObject(req).objectContent)
-
+            s3Client.getObject { it.bucket(s3Config.bucket).key("image/${shortCode.removePrefix("!")}") }
+                .use { stream -> image = ImageIO.read(stream) }
         }
 
     }

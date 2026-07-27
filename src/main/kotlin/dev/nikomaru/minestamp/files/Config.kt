@@ -1,6 +1,5 @@
 package dev.nikomaru.minestamp.files
 
-import com.amazonaws.services.s3.model.PutObjectRequest
 import com.github.shynixn.mccoroutine.bukkit.launch
 import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.data.FileType
@@ -9,8 +8,11 @@ import dev.nikomaru.minestamp.data.LocalConfig
 import dev.nikomaru.minestamp.data.PlayerDefaultEmojiConfigData
 import dev.nikomaru.minestamp.utils.FluentEmojiFont
 import dev.nikomaru.minestamp.utils.LangUtils
+import dev.nikomaru.minestamp.utils.Utils.bucketExists
+import dev.nikomaru.minestamp.utils.Utils.getObjectAsString
 import dev.nikomaru.minestamp.utils.Utils.getS3Client
 import dev.nikomaru.minestamp.utils.Utils.json
+import dev.nikomaru.minestamp.utils.Utils.objectExists
 import java.util.Properties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -20,6 +22,7 @@ import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.context.loadKoinModules
 import org.koin.dsl.module
+import software.amazon.awssdk.core.sync.RequestBody
 
 object Config: KoinComponent {
     val plugin: MineStamp by inject()
@@ -86,25 +89,22 @@ object Config: KoinComponent {
         withContext(Dispatchers.IO) {
             val s3 = getS3Client()
             val s3Config = get<LocalConfig>().s3Config ?: throw IllegalStateException("S3 config is not found")
-            if (!s3.doesBucketExistV2(s3Config.bucket)) {
-                s3.createBucket(s3Config.bucket)
+            if (!s3.bucketExists(s3Config.bucket)) {
+                s3.createBucket { it.bucket(s3Config.bucket) }
             }
-            if (!s3.doesObjectExist(s3Config.bucket, "random.json")) {
-                val request = PutObjectRequest(
-                    s3Config.bucket, "random.json", plugin.javaClass.getResourceAsStream("/default-random.json"), null
-                )
-                request.requestClientOptions.readLimit = 10485760
+            if (!s3.objectExists(s3Config.bucket, "random.json")) {
+                val defaultRandom = plugin.javaClass.getResourceAsStream("/default-random.json")
+                    ?: throw IllegalStateException("default-random.json is not found")
                 s3.putObject(
-                    request
+                    { it.bucket(s3Config.bucket).key("random.json") },
+                    RequestBody.fromBytes(defaultRandom.use { stream -> stream.readAllBytes() })
                 )
             }
-            if (!s3.doesObjectExist(s3Config.bucket, "player-default.json")) {
+            if (!s3.objectExists(s3Config.bucket, "player-default.json")) {
                 val defaultPlayerConfig = PlayerDefaultEmojiConfigData()
                 s3.putObject(
-                    s3Config.bucket,
-                    "player-default.json",
-                    json.encodeToString(defaultPlayerConfig).byteInputStream(),
-                    null
+                    { it.bucket(s3Config.bucket).key("player-default.json") },
+                    RequestBody.fromString(json.encodeToString(defaultPlayerConfig))
                 )
             }
             val randomConfig = sanitizeRandomConfig(
@@ -159,15 +159,16 @@ object Config: KoinComponent {
             if (get<LocalConfig>().type == FileType.S3) {
                 val s3Client = getS3Client()
                 val s3Config = get<LocalConfig>().s3Config!!
-                if (s3Client.doesBucketExistV2(s3Config.bucket).not()) {
-                    s3Client.createBucket(s3Config.bucket)
+                if (s3Client.bucketExists(s3Config.bucket).not()) {
+                    s3Client.createBucket { it.bucket(s3Config.bucket) }
                 }
-                s3Client.putObject(s3Config.bucket, "image/", "")
+                s3Client.putObject({ it.bucket(s3Config.bucket).key("image/") }, RequestBody.empty())
                 val inputStream = plugin.javaClass.classLoader.getResourceAsStream("test.jpg")
                 if (inputStream != null) {
-                    val req = PutObjectRequest(s3Config.bucket, "image/test.jpg", inputStream, null)
-                    req.requestClientOptions.readLimit = 1024 * 1024 * 10
-                    s3Client.putObject(req)
+                    s3Client.putObject(
+                        { it.bucket(s3Config.bucket).key("image/test.jpg") },
+                        RequestBody.fromBytes(inputStream.use { stream -> stream.readAllBytes() })
+                    )
                 } else {
                     throw IllegalStateException("test.jpg is not found")
                 }
@@ -186,9 +187,8 @@ object Config: KoinComponent {
             } else {
                 val s3Client = getS3Client()
                 val s3Config = localConfig.s3Config ?: throw IllegalStateException("S3 config is not found")
-                val imageList = s3Client.listObjectsV2(
-                    s3Config.bucket, "image/"
-                ).objectSummaries.map { it.key.removePrefix("image/") }.filter { it.isNotEmpty() }
+                val imageList = s3Client.listObjectsV2Paginator { it.bucket(s3Config.bucket).prefix("image/") }
+                    .contents().map { it.key().removePrefix("image/") }.filter { it.isNotEmpty() }
                 loadKoinModules(module {
                     single { ImageListData(imageList) }
                 })

@@ -1,12 +1,12 @@
 [versions]
-paper = "1.21.11-R0.1-SNAPSHOT"
+paper = "26.2.build.84-stable"
 mccoroutine = "2.22.0"
 cloud = "2.1.0"
 cloudPaper = "2.1.0-SNAPSHOT"
 koinVersion = "4.2.2"
 coroutine = "1.11.0"
 serialization = "1.11.0"
-awsJavaSdkS3 = "1.12.797"
+awsSdkS3 = "2.46.7"
 commonsMath3 = "3.6.1"
 protocolLib = "5.4.0"
 javaJwt = "4.6.0"
@@ -26,7 +26,7 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 mccoroutine-bukkit-api = { group = "com.github.shynixn.mccoroutine", name = "mccoroutine-bukkit-api", version.ref = "mccoroutine" }
 mccoroutine-bukkit-core = { group = "com.github.shynixn.mccoroutine", name = "mccoroutine-bukkit-core", version.ref = "mccoroutine" }
 koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koinVersion" }
-awsJavaSdkS3 = { group = "com.amazonaws", name = "aws-java-sdk-s3", version.ref = "awsJavaSdkS3" }
+awsSdkS3 = { group = "software.amazon.awssdk", name = "s3", version.ref = "awsSdkS3" }
 commonsMath3 = { group = "org.apache.commons", name = "commons-math3", version.ref = "commonsMath3" }
 protocolLib = { group = "net.dmulloy2", name = "ProtocolLib", version.ref = "protocolLib" }
 javaJwt = { group = "com.auth0", name = "java-jwt", version.ref = "javaJwt" }

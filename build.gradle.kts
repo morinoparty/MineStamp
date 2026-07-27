@@ -26,19 +26,6 @@ repositories {
 }
 
 dependencies {
-    components {
-        // mineauth-api 0.3.x はGradleメタデータ上 JVM 25 ターゲットで公開されているが、
-        // 本プロジェクトはJVM 21のため変異(variant)解決が失敗する。
-        // compileOnly(API参照のみ)のため、JVM 21互換として扱わせる。
-        withModule("party.morino:mineauth-api") {
-            allVariants {
-                attributes {
-                    attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 21)
-                }
-            }
-        }
-    }
-
     compileOnly(libs.paper.api)
 
     implementation(libs.bundles.commands)
@@ -54,7 +41,7 @@ dependencies {
 
     implementation(libs.koin.core)
 
-    implementation(libs.awsJavaSdkS3)
+    implementation(libs.awsSdkS3)
     implementation(libs.commonsMath3)
     implementation(libs.javaJwt)
 
@@ -64,16 +51,16 @@ dependencies {
 
 
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+    toolchain.languageVersion.set(JavaLanguageVersion.of(25))
 }
 
 tasks {
     compileKotlin {
-        compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
+        compilerOptions.jvmTarget.set(JvmTarget.JVM_25)
         compilerOptions.javaParameters = true
     }
     compileTestKotlin {
-        compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
+        compilerOptions.jvmTarget.set(JvmTarget.JVM_25)
     }
     build {
         dependsOn("shadowJar")

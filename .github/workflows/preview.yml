@@ -1,0 +1,221 @@
+name: preview.yml
+on:
+  pull_request:
+    types: [opened, synchronize, closed]
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+  contents: read
+  id-token: write
+  attestations: write
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_EC2_METADATA_DISABLED: true
+  AWS_REGION: auto
+  AWS_CLI_FILE_ENCODING: UTF-8
+  AWS_DEFAULT_S3_SIGNATURE_VERSION: s3v4
+  S3_UPLOAD_BUCKET: ${{ secrets.S3_UPLOAD_BUCKET }}
+  S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+  PREVIEW_BASE_URL: https://moripa-ci.nikomaru.dev/minestamp
+  PROJECT_NAME: MineStamp
+
+jobs:
+  # 共通の前処理：コミットSHAを取得
+  setup:
+    if: ${{ github.event.action != 'closed' }}
+    runs-on: ubuntu-latest
+    outputs:
+      commit_sha: ${{ steps.vars.outputs.commit_sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set short git commit SHA
+        id: vars
+        run: |
+          calculatedSha=$(git rev-parse --short HEAD)
+          echo "commit_sha=$calculatedSha" >> $GITHUB_OUTPUT
+
+  # Gradle ビルドジョブ（docs と並列実行）
+  build-gradle:
+    needs: setup
+    runs-on: ubuntu-latest
+    outputs:
+      attestation_url: ${{ steps.attest.outputs.attestation-url }}
+    env:
+      COMMIT_SHORT_SHA: ${{ needs.setup.outputs.commit_sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      # Gradle キャッシュの設定（setup-gradle を使用）
+      - uses: gradle/actions/setup-gradle@8379f6a1328ee0e06e2bb424dadb7b159856a326 # v4.4.0
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/master' }}
+
+      - name: Change wrapper permissions
+        run: chmod +x ./gradlew
+
+      - name: change plugin.yml version
+        run: |
+          sed -i "s/versionPlaceholder/${{ env.COMMIT_SHORT_SHA }}/" ./build.gradle.kts
+
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      - name: Prepare Gradle artifacts
+        run: |
+          mkdir -p ./gradle-artifacts/jars
+          mv ./build/libs/${{ env.PROJECT_NAME }}-*-all.jar ./gradle-artifacts/jars/${{ env.PROJECT_NAME }}-${{ env.COMMIT_SHORT_SHA }}.jar
+
+      # GitHub Attestations で署名
+      - name: Attest JAR artifacts
+        id: attest
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: './gradle-artifacts/jars/*.jar'
+
+      - name: Upload Gradle artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gradle-artifacts
+          path: ./gradle-artifacts
+          retention-days: 1
+
+  # Docs ビルドジョブ（gradle と並列実行）
+  build-docs:
+    needs: setup
+    runs-on: ubuntu-latest
+    env:
+      COMMIT_SHORT_SHA: ${{ needs.setup.outputs.commit_sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        name: Install pnpm
+        with:
+          version: 10
+          run_install: false
+
+      # pnpm キャッシュの設定
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install docs dependencies
+        working-directory: docs
+        run: pnpm install
+
+      - name: Build Fumadocs
+        working-directory: docs
+        env:
+          BASE_PATH: /minestamp/${{ env.COMMIT_SHORT_SHA }}/docs
+        run: pnpm run build
+
+      - name: Upload docs artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: docs-artifacts
+          path: ./docs/out
+          retention-days: 1
+
+  # S3 アップロードジョブ（JAR・Docs）
+  upload-s3:
+    needs: [setup, build-gradle, build-docs]
+    runs-on: ubuntu-latest
+    env:
+      COMMIT_SHORT_SHA: ${{ needs.setup.outputs.commit_sha }}
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ./artifacts
+
+      - name: Prepare upload directory
+        run: |
+          mkdir -p ./upload
+          cp -r ./artifacts/gradle-artifacts/jars ./upload/ || echo "No JAR artifacts"
+          mkdir -p ./upload/docs
+          mv ./artifacts/docs-artifacts/* ./upload/docs/
+
+      - name: Upload to S3 (parallel)
+        run: |
+          # AWS CLIの並列リクエスト数を増やす
+          aws configure set default.s3.max_concurrent_requests 50
+
+          S3_BASE="s3://${{ env.S3_UPLOAD_BUCKET }}/minestamp/${{ env.COMMIT_SHORT_SHA }}"
+          S3_OPTS="--endpoint-url ${S3_ENDPOINT} --only-show-errors"
+
+          # JAR・Docs を並列でアップロード
+          aws s3 cp ./upload/jars $S3_BASE/jars $S3_OPTS --recursive &
+          aws s3 cp ./upload/docs $S3_BASE/docs $S3_OPTS --recursive &
+
+          # 全ての並列アップロードを待機
+          wait
+          echo "S3 upload completed"
+
+  # コメント作成ジョブ
+  comment:
+    needs: [setup, build-gradle, upload-s3]
+    runs-on: ubuntu-latest
+    if: ${{ github.event.action == 'opened' || github.event.action == 'synchronize' }}
+    env:
+      COMMIT_SHORT_SHA: ${{ needs.setup.outputs.commit_sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Get limit time
+        id: limit-time
+        run: |
+          limit_time=$(date -d "7 days" +%Y-%m-%d)
+          echo "LIMIT_TIME=$limit_time" >> $GITHUB_ENV
+
+      - name: Create comment file
+        env:
+          JAR_BASE_URL: "${{ env.PREVIEW_BASE_URL }}/${{ env.COMMIT_SHORT_SHA }}/jars"
+          DOCS_PREVIEW_URL: "${{ env.PREVIEW_BASE_URL }}/${{ env.COMMIT_SHORT_SHA }}/docs/index.html"
+          ATTESTATION_URL: "${{ needs.build-gradle.outputs.attestation_url }}"
+          LIMIT_TIME: ${{ env.LIMIT_TIME }}
+        run: |
+          cat << EOF > comment.md
+          ## 🚀 Preview of ${{ github.event.repository.name }}
+
+          ### 📦 Preview JARs
+          Available for 7 days (until $LIMIT_TIME)
+          | Artifact | Download |
+          |----------|----------|
+          | Plugin | [${{ env.PROJECT_NAME }}-${{ env.COMMIT_SHORT_SHA }}.jar]($JAR_BASE_URL/${{ env.PROJECT_NAME }}-${{ env.COMMIT_SHORT_SHA }}.jar) |
+
+          > 📜 **Attestation** (SLSA provenance): [Verify on GitHub]($ATTESTATION_URL) or run \`gh attestation verify <jar-file> --owner morinoparty\`
+
+          ### 📖 Documentation
+          Available for 7 days (until $LIMIT_TIME)
+          | Resource | Link |
+          |----------|------|
+          | 📖 Documentation | [Preview]($DOCS_PREVIEW_URL) |
+          EOF
+
+      - name: Create PR comment
+        run: gh pr comment ${{ github.event.number }} --body-file comment.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

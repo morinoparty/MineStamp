@@ -1,15 +1,16 @@
 [versions]
 paper = "1.21.11-R0.1-SNAPSHOT"
 mccoroutine = "2.22.0"
-cloud = "2.0.0"
-cloudPaper = "2.0.0-SNAPSHOT"
-koinVersion = "4.1.1"
-coroutine = "1.10.2"
-serialization = "1.9.0"
-awsJavaSdkS3 = "1.12.795"
+cloud = "2.1.0"
+cloudPaper = "2.1.0-SNAPSHOT"
+koinVersion = "4.2.2"
+coroutine = "1.11.0"
+serialization = "1.11.0"
+awsJavaSdkS3 = "1.12.797"
 commonsMath3 = "3.6.1"
 protocolLib = "5.4.0"
-javaJwt = "4.5.0"
+javaJwt = "4.6.0"
+mineauthApi = "0.3.4"
 
 [libraries]
 paper-api = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }
@@ -28,14 +29,15 @@ awsJavaSdkS3 = { group = "com.amazonaws", name = "aws-java-sdk-s3", version.ref 
 commonsMath3 = { group = "org.apache.commons", name = "commons-math3", version.ref = "commonsMath3" }
 protocolLib = { group = "net.dmulloy2", name = "ProtocolLib", version.ref = "protocolLib" }
 javaJwt = { group = "com.auth0", name = "java-jwt", version.ref = "javaJwt" }
+mineauth-api = { group = "party.morino", name = "mineauth-api", version.ref = "mineauthApi" }
 
 [plugins]
 run-paper = { id = "xyz.jpenilla.run-paper", version = "3.0.2" }
 resource-factory = { id = "xyz.jpenilla.resource-factory", version = "1.3.1" }
-shadow = { id = "com.gradleup.shadow", version = "9.3.0" }
-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version = "2.2.21" }
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version = "2.2.21" }
-dokka = { id = "org.jetbrains.dokka", version = "2.1.0" }
+shadow = { id = "com.gradleup.shadow", version = "9.6.1" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version = "2.4.10" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version = "2.4.10" }
+dokka = { id = "org.jetbrains.dokka", version = "2.2.0" }
 
 [bundles]
 commands = ["cloud", "cloudPaper", "cloud-annotations", "cloud-kotlin-extensions", "cloud-kotlin-coroutines", "cloud-kotlin-coroutines-annotations"]

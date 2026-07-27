@@ -283,6 +283,14 @@ class FluentEmojiFont(private val data: ByteArray) {
         return null
     }
 
+    /** Returns true if the codepoint sequence resolves to a glyph with an embedded bitmap. PNGのデコードを行わないため一覧の事前フィルタに使える。 */
+    fun hasGlyph(unicodeSpec: String): Boolean {
+        val codePoints = unicodeSpec.trim().split(" ").mapNotNull { it.toIntOrNull(16) }
+        if (codePoints.isEmpty()) return false
+        val glyphId = resolveGlyph(codePoints) ?: return false
+        return glyphPngBytes(glyphId) != null
+    }
+
     /** Returns the embedded PNG bytes for the codepoint sequence, or null if unavailable. */
     fun getPngBytes(codePoints: List<Int>): ByteArray? {
         val glyphId = resolveGlyph(codePoints) ?: return null

@@ -6,6 +6,7 @@ import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.EmojiStamp
 import dev.nikomaru.minestamp.stamp.Stamp
 import dev.nikomaru.minestamp.stamp.StampManager
+import dev.nikomaru.minestamp.utils.FluentEmojiFont
 import org.bukkit.command.CommandSender
 import org.incendo.cloud.context.CommandContext
 import org.incendo.cloud.context.CommandInput
@@ -23,6 +24,14 @@ import java.util.Properties
 class StampArgumentParser<CommandSender> : ArgumentParser<CommandSender, Stamp>, BlockingSuggestionProvider<CommandSender>, KoinComponent {
     val plugin: MineStamp by inject()
     private val emojiProperties: Properties by inject()
+    private val emojiFont: FluentEmojiFont by inject()
+
+    // フォントで実際に描画できる絵文字のみをタブ補完に出す。初回参照時に一度だけ計算する
+    private val renderableEmojiSuggestions: List<String> by lazy {
+        emojiProperties.stringPropertyNames()
+            .filter { key -> emojiFont.hasGlyph(emojiProperties.getProperty(key) ?: "") }
+            .map { key -> toEmojiChar(emojiProperties.getProperty(key)) + key }
+    }
 
     companion object {
         fun stampParser(): ParserDescriptor<CommandSender, Stamp> {
@@ -61,10 +70,7 @@ class StampArgumentParser<CommandSender> : ArgumentParser<CommandSender, Stamp>,
 
         val candidates: List<String> = if (sender.hasPermission("minestamp.advanced")) {
             val images = get<ImageListData>().list.map { "!$it" }
-            val emojis = emojiProperties.stringPropertyNames().map { key ->
-                toEmojiChar(emojiProperties.getProperty(key)) + key
-            }
-            images + emojis
+            images + renderableEmojiSuggestions
         } else if (sender is org.bukkit.entity.Player) {
             get<AbstractPlayerStampManager>().getPlayerStamp(sender).map { stamp ->
                 if (stamp is EmojiStamp) stamp.char + stamp.shortCode else stamp.shortCode

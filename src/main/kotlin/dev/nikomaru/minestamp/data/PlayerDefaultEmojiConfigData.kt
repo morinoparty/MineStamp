@@ -10,8 +10,13 @@ data class PlayerDefaultEmojiConfigData(
     val size: Double = 1.8,
     val particleSize: Double = 1.0,
     val accuracy: Int = 32,
-    val defaultEmoji: List<@Serializable(with = AbstractStampSerializer::class) Stamp> = arrayListOf(
+    val defaultEmoji: List<String> = listOf(
         ":cucumber:", ":thinking-face:", ":angry-face:", ":sleeping-face:"
-    ).mapNotNull { StampManager.getStamp(it) },
+    ),
     val waitSecond : Double = 5.0
-)
+) {
+    // 解決できない絵文字（フォント更新で描画不能になったもの等）は黙って除外する
+    val defaultStamps: List<Stamp> by lazy {
+        defaultEmoji.mapNotNull { runCatching { StampManager.getStamp(it) }.getOrNull() }
+    }
+}

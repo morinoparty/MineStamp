@@ -85,7 +85,7 @@ class StampHandler : KoinComponent {
                 HttpStatus.NOT_FOUND,
                 "Stamp data is not loaded for this player. Join the server at least once after a restart."
             )
-            stored + get<PlayerDefaultEmojiConfigData>().defaultEmoji
+            stored + get<PlayerDefaultEmojiConfigData>().defaultStamps
         }
 
         return PlayerStampsResponse(

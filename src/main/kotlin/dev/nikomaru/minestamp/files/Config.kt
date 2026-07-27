@@ -7,9 +7,11 @@ import dev.nikomaru.minestamp.data.FileType
 import dev.nikomaru.minestamp.data.ImageListData
 import dev.nikomaru.minestamp.data.LocalConfig
 import dev.nikomaru.minestamp.data.PlayerDefaultEmojiConfigData
+import dev.nikomaru.minestamp.utils.FluentEmojiFont
 import dev.nikomaru.minestamp.utils.LangUtils
 import dev.nikomaru.minestamp.utils.Utils.getS3Client
 import dev.nikomaru.minestamp.utils.Utils.json
+import java.util.Properties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -69,7 +71,8 @@ object Config: KoinComponent {
                 playerDefaultConfigFile.createNewFile()
                 playerDefaultConfigFile.writeText(json.encodeToString(defaultPlayerConfig))
             }
-            val randomConfig = json.decodeFromString<HashMap<String, Int>>(randomConfigFile.readText())
+            val randomConfig =
+                sanitizeRandomConfig(json.decodeFromString<HashMap<String, Int>>(randomConfigFile.readText()))
             val playerDefaultConfig =
                 json.decodeFromString<PlayerDefaultEmojiConfigData>(playerDefaultConfigFile.readText())
             loadKoinModules(module {
@@ -104,8 +107,10 @@ object Config: KoinComponent {
                     null
                 )
             }
-            val randomConfig = json.decodeFromString<HashMap<String, Int>>(
-                s3.getObjectAsString(s3Config.bucket, "random.json")
+            val randomConfig = sanitizeRandomConfig(
+                json.decodeFromString<HashMap<String, Int>>(
+                    s3.getObjectAsString(s3Config.bucket, "random.json")
+                )
             )
             val playerDefaultConfig = json.decodeFromString<PlayerDefaultEmojiConfigData>(
                 s3.getObjectAsString(s3Config.bucket, "player-default.json")
@@ -116,6 +121,26 @@ object Config: KoinComponent {
                 single { playerDefaultConfig }
             })
         }
+    }
+
+    // 既存サーバーのrandom.jsonにはフォント更新で描画できなくなった絵文字が残り得るため、
+    // 抽選対象からメモリ上で除外する（ファイルは管理者のデータなので書き換えない）
+    private fun sanitizeRandomConfig(randomConfig: HashMap<String, Int>): HashMap<String, Int> {
+        val emojiProperties = get<Properties>()
+        val emojiFont = get<FluentEmojiFont>()
+        val unrenderable = randomConfig.keys.filter { code ->
+            code.startsWith(":") && run {
+                val spec = emojiProperties.getProperty(code)
+                spec == null || !emojiFont.hasGlyph(spec)
+            }
+        }
+        if (unrenderable.isNotEmpty()) {
+            plugin.logger.warning(
+                "random.json contains ${unrenderable.size} emoji(s) that cannot be rendered; they are excluded from random tickets."
+            )
+            unrenderable.forEach(randomConfig::remove)
+        }
+        return randomConfig
     }
 
     private suspend fun makeFolder() {

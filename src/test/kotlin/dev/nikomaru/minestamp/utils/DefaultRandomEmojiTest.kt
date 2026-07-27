@@ -36,6 +36,9 @@ class DefaultRandomEmojiTest {
                 failures += "$shortCode ($codepointSpec): no glyph image"
             } else if (image.width <= 0 || image.height <= 0) {
                 failures += "$shortCode ($codepointSpec): empty image ${image.width}x${image.height}"
+            } else if (!font.hasGlyph(codepointSpec)) {
+                // random.jsonのサニタイズとタブ補完はhasGlyphに依存しているため、getImageとの整合を確認する
+                failures += "$shortCode ($codepointSpec): renders but hasGlyph() returned false"
             }
         }
 

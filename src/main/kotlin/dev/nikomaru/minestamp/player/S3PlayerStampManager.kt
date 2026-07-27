@@ -43,25 +43,25 @@ class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {
         val bucketName = get<LocalConfig>().s3Config!!.bucket
         val key = "player/${player.uniqueId}.json"
         val playerData = json.decodeFromString(PlayerData.serializer(), s3Client.getObjectAsString(bucketName, key))
-        playerEmoji[player.uniqueId] = playerData.emoji
+        store(player, playerData.emoji, plugin.logger)
     }
 
     override fun getPlayerStamp(player: Player): ArrayList<Stamp> {
-        val defaultStamp = get<PlayerDefaultEmojiConfigData>().defaultEmoji
+        val defaultStamp = get<PlayerDefaultEmojiConfigData>().defaultStamps
         val playerStamp = playerEmoji[player.uniqueId] ?: emptyList()
         return (playerStamp + defaultStamp).toCollection(arrayListOf())
     }
 
     override fun addStamp(player: Player, stamp: Stamp) {
         plugin.logger.info("addStamp: ${stamp.shortCode} to ${player.name}")
-        val playerStamp = playerEmoji[player.uniqueId] ?: emptyList()
-        val newStamp = (playerStamp + stamp).toCollection(arrayListOf())
-        playerEmoji[player.uniqueId] = newStamp
+        val newCodes = (playerShortCodes[player.uniqueId] ?: emptyList()) + stamp.shortCode
+        playerShortCodes[player.uniqueId] = newCodes
+        playerEmoji[player.uniqueId] = (playerEmoji[player.uniqueId] ?: emptyList()) + stamp
         val s3Client = getS3Client()
         val bucketName = get<LocalConfig>().s3Config!!.bucket
         val key = "player/${player.uniqueId}.json"
         val data = PlayerData(
-            emoji = newStamp
+            emoji = newCodes
         )
         val inputStream =  json.encodeToString(data).byteInputStream()
         val metadata = ObjectMetadata()
@@ -75,14 +75,15 @@ class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {
 
     override fun removeStamp(player: Player, stamp: Stamp) {
         plugin.logger.info("removeStamp: ${stamp.shortCode} from ${player.name}")
-        val playerStamp = playerEmoji[player.uniqueId] ?: emptyList()
-        val newStamp = (playerStamp - stamp).toCollection(arrayListOf())
-        playerEmoji[player.uniqueId] = newStamp
+        val newCodes = (playerShortCodes[player.uniqueId] ?: emptyList()) - stamp.shortCode
+        playerShortCodes[player.uniqueId] = newCodes
+        playerEmoji[player.uniqueId] =
+            (playerEmoji[player.uniqueId] ?: emptyList()).filterNot { it.shortCode == stamp.shortCode }
         val s3Client = getS3Client()
         val bucketName = get<LocalConfig>().s3Config!!.bucket
         val key = "player/${player.uniqueId}.json"
         val data = PlayerData(
-            emoji = newStamp
+            emoji = newCodes
         )
         val req = PutObjectRequest(bucketName, key, json.encodeToString(data).byteInputStream(), null)
         req.requestClientOptions.readLimit = 1024 * 1024 * 10
@@ -91,7 +92,7 @@ class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {
 
     override fun availableStamp(player: Player, stamp: Stamp): Boolean {
         if(player.hasPermission("minestamp.stamp.all")) return true
-        val default = get<PlayerDefaultEmojiConfigData>().defaultEmoji
+        val default = get<PlayerDefaultEmojiConfigData>().defaultStamps
         val playerStamp = playerEmoji[player.uniqueId] ?: emptyList()
         return (playerStamp + default).map{it.shortCode}.contains(stamp.shortCode)
     }

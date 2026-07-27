@@ -1,6 +1,7 @@
 package dev.nikomaru.minestamp.command
 
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
+import dev.nikomaru.minestamp.stamp.EmojiStamp
 import dev.nikomaru.minestamp.utils.LangUtils.sendI18nRichMessage
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
@@ -27,9 +28,14 @@ class PlayerUtilCommand: KoinComponent {
         val playerStampManager: AbstractPlayerStampManager = get<AbstractPlayerStampManager>()
         val list = playerStampManager.getPlayerStamp(actor)
         list.sortBy { it.shortCode }
-        var message = ""
-        for (i in list.indices) {
-            message += list[i].shortCode + if(i % resetCount == resetCount - 1) "\n" else " "
+        // クリックで /stamp コマンドを入力欄に補完できるようにする
+        val message = list.chunked(resetCount.coerceAtLeast(1)).joinToString("\n") { row ->
+            row.joinToString("<gray> | </gray>") { stamp ->
+                val label =
+                    if (stamp is EmojiStamp) "${stamp.char} <aqua>${stamp.shortCode}</aqua>"
+                    else "<aqua>${stamp.shortCode}</aqua>"
+                "<click:suggest_command:'/stamp ${stamp.shortCode}'><hover:show_text:'/stamp ${stamp.shortCode}'>$label</hover></click>"
+            }
         }
         actor.sendRichMessage(message)
     }

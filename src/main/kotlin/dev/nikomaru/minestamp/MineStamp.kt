@@ -2,6 +2,7 @@ package dev.nikomaru.minestamp
 
 import com.github.shynixn.mccoroutine.bukkit.SuspendingJavaPlugin
 import com.github.shynixn.mccoroutine.bukkit.registerSuspendingEvents
+import dev.nikomaru.minestamp.api.MineAuthIntegration
 import dev.nikomaru.minestamp.command.ColorEmojiCommand
 import dev.nikomaru.minestamp.command.PlayerUtilCommand
 import dev.nikomaru.minestamp.command.PublishTicketCommand
@@ -15,6 +16,7 @@ import dev.nikomaru.minestamp.listener.TicketInteractEvent
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.player.LocalPlayerStampManager
 import dev.nikomaru.minestamp.player.S3PlayerStampManager
+import dev.nikomaru.minestamp.utils.FluentEmojiFont
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
@@ -30,7 +32,6 @@ import org.koin.core.component.get
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.loadKoinModules
 import org.koin.dsl.module
-import java.awt.Font
 import java.util.*
 
 
@@ -46,18 +47,17 @@ open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
         }
         val br = plugin.javaClass.classLoader.getResourceAsStream("emoji.properties")
         val emojiProperties = Properties()
-        withContext(Dispatchers.IO) {
+        val emojiFont = withContext(Dispatchers.IO) {
             emojiProperties.load(br)
+            val fontData = plugin.javaClass.classLoader.getResourceAsStream("FluentEmojiColor-CBDT.ttf")
+                ?.use { it.readBytes() }
+                ?: error("FluentEmojiColor-CBDT.ttf is not found in resources.")
+            FluentEmojiFont(fontData)
         }
 
         loadKoinModules(module {
             single { emojiProperties }
-            single {
-                Font.createFont(
-                    Font.TRUETYPE_FONT,
-                    plugin.javaClass.classLoader.getResourceAsStream("NotoEmoji-VariableFont_wght.ttf")
-                )
-            }
+            single { emojiFont }
         })
         logger.info("command setting")
         setCommand()
@@ -76,6 +76,8 @@ open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
         })
         logger.info("listener setting")
         setListener()
+        logger.info("mineauth setting")
+        setMineAuth()
     }
 
     private fun setKoin() {
@@ -114,6 +116,17 @@ open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
     private fun setListener() {
         server.pluginManager.registerSuspendingEvents(LoginEvent(), this)
         server.pluginManager.registerSuspendingEvents(TicketInteractEvent(), this)
+    }
+
+    private fun setMineAuth() {
+        // Bukkitレベルの存在確認のみ行う（MineAuthのAPIクラスには触れない）
+        // MineAuth不在時にAPIクラスを解決するとNoClassDefFoundErrorになるため、
+        // API利用コードはMineAuthIntegrationに隔離している
+        if (server.pluginManager.getPlugin("MineAuth") != null) {
+            MineAuthIntegration(this).register()
+        } else {
+            logger.info("MineAuth not found - HTTP endpoints disabled")
+        }
     }
 
 }

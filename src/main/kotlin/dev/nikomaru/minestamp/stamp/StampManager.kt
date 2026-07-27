@@ -35,13 +35,10 @@ object StampManager: KoinComponent {
     }
 
     private fun getEmojiStamp(shortCode: String): EmojiStamp? {
-        val unicode = emojiProperties.getProperty(shortCode)?.lowercase()?.replace(" ", "_") ?: return null
-        val pictureName = "emoji_u${unicode}.png"
-        plugin.javaClass.getResourceAsStream("/noto-emoji_128/$pictureName") ?: run {
-            plugin.logger.warning("/noto-emoji_128/$pictureName is not found.")
-            return null
-        }
-        return EmojiStamp(shortCode)
+        emojiProperties.getProperty(shortCode) ?: return null
+        val stamp = EmojiStamp(shortCode)
+        // EmojiStamp already logs a warning when the image cannot be resolved
+        return if (stamp.hasImage) stamp else null
     }
 
     fun getRandomStamp(): Stamp? {

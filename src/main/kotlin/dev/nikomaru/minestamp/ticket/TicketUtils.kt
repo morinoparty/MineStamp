@@ -1,4 +1,4 @@
-package dev.nikomaru.minestamp.utils
+package dev.nikomaru.minestamp.ticket
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm

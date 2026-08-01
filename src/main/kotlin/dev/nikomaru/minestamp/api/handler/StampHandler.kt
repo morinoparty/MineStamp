@@ -1,10 +1,13 @@
-package dev.nikomaru.minestamp.api
+package dev.nikomaru.minestamp.api.handler
 
+import dev.nikomaru.minestamp.api.model.AllStampsResponse
+import dev.nikomaru.minestamp.api.model.PlayerStampsResponse
+import dev.nikomaru.minestamp.api.model.StampData
+import dev.nikomaru.minestamp.api.model.StampType
 import dev.nikomaru.minestamp.data.ImageListData
-import dev.nikomaru.minestamp.data.PlayerDefaultEmojiConfigData
+import dev.nikomaru.minestamp.config.PlayerDefaultEmojiConfigData
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.Stamp
-import kotlinx.serialization.Serializable
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import party.morino.mineauth.api.annotations.Authenticated
@@ -15,44 +18,6 @@ import party.morino.mineauth.api.auth.Principal
 import party.morino.mineauth.api.http.HttpError
 import party.morino.mineauth.api.http.HttpStatus
 import java.util.Properties
-
-/**
- * スタンプの種別
- */
-@Serializable
-enum class StampType {
-    /** 絵文字スタンプ（shortCodeが`:`で始まる） */
-    EMOJI,
-
-    /** 画像スタンプ（shortCodeが`!`で始まる） */
-    IMAGE
-}
-
-/**
- * スタンプ1件分のレスポンス
- */
-@Serializable
-data class StampData(
-    val shortCode: String,
-    val type: StampType
-)
-
-/**
- * プレイヤーの所持スタンプ一覧のレスポンス
- */
-@Serializable
-data class PlayerStampsResponse(
-    val uuid: String,
-    val stamps: List<StampData>
-)
-
-/**
- * 全スタンプ一覧のレスポンス
- */
-@Serializable
-data class AllStampsResponse(
-    val stamps: List<StampData>
-)
 
 /**
  * MineAuth経由でスタンプ情報を提供するハンドラー
@@ -90,7 +55,7 @@ class StampHandler : KoinComponent {
 
         return PlayerStampsResponse(
             uuid = caller.uuid.toString(),
-            stamps = stamps.map { it.toStampData() }.distinctBy { it.shortCode }
+            stamps = stamps.map { StampData.from(it) }.distinctBy { it.shortCode }
         )
     }
 
@@ -119,12 +84,4 @@ class StampHandler : KoinComponent {
             stamps = (emojiStamps + imageStamps).sortedBy { it.shortCode }
         )
     }
-
-    /**
-     * StampをレスポンスDTOへ変換する
-     */
-    private fun Stamp.toStampData(): StampData = StampData(
-        shortCode = shortCode,
-        type = if (shortCode.startsWith("!")) StampType.IMAGE else StampType.EMOJI
-    )
 }

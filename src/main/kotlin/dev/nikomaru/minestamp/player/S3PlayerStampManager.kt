@@ -1,9 +1,9 @@
 package dev.nikomaru.minestamp.player
 
 import dev.nikomaru.minestamp.MineStamp
-import dev.nikomaru.minestamp.data.LocalConfig
+import dev.nikomaru.minestamp.config.LocalConfig
+import dev.nikomaru.minestamp.config.PlayerDefaultEmojiConfigData
 import dev.nikomaru.minestamp.data.PlayerData
-import dev.nikomaru.minestamp.data.PlayerDefaultEmojiConfigData
 import dev.nikomaru.minestamp.stamp.Stamp
 import dev.nikomaru.minestamp.utils.Utils.getObjectAsString
 import dev.nikomaru.minestamp.utils.Utils.getS3Client
@@ -15,14 +15,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.component.inject
 import software.amazon.awssdk.core.sync.RequestBody
-import kotlin.collections.ArrayList
-import kotlin.collections.arrayListOf
-import kotlin.collections.emptyList
-import kotlin.collections.listOf
-import kotlin.collections.minus
-import kotlin.collections.plus
-import kotlin.collections.set
-import kotlin.collections.toCollection
 
 
 class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {

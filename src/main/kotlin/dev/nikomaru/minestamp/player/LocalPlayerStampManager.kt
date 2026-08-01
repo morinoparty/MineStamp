@@ -1,7 +1,7 @@
 package dev.nikomaru.minestamp.player
 
 import dev.nikomaru.minestamp.MineStamp
-import dev.nikomaru.minestamp.data.PlayerDefaultEmojiConfigData
+import dev.nikomaru.minestamp.config.PlayerDefaultEmojiConfigData
 import dev.nikomaru.minestamp.data.PlayerData
 import dev.nikomaru.minestamp.stamp.Stamp
 import dev.nikomaru.minestamp.utils.Utils.json
@@ -23,7 +23,6 @@ class LocalPlayerStampManager: AbstractPlayerStampManager(),  KoinComponent {
             file.parentFile.mkdirs()
             file.writeText(json.encodeToString(data))
         }
-        load(player)
     }
 
     override fun load(player: Player) {

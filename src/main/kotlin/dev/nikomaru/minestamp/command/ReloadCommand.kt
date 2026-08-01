@@ -1,6 +1,6 @@
 package dev.nikomaru.minestamp.command
 
-import dev.nikomaru.minestamp.files.Config
+import dev.nikomaru.minestamp.config.Config
 import dev.nikomaru.minestamp.utils.LangUtils.sendI18nRichMessage
 import org.bukkit.command.CommandSender
 import org.incendo.cloud.annotations.Command

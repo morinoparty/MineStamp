@@ -1,7 +1,7 @@
 package dev.nikomaru.minestamp.stamp
 
-import dev.nikomaru.minestamp.data.FileType
-import dev.nikomaru.minestamp.data.LocalConfig
+import dev.nikomaru.minestamp.config.FileType
+import dev.nikomaru.minestamp.config.LocalConfig
 import dev.nikomaru.minestamp.utils.Utils.getS3Client
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get

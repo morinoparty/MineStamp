@@ -1,6 +1,6 @@
 package dev.nikomaru.minestamp.utils
 
-import dev.nikomaru.minestamp.data.LocalConfig
+import dev.nikomaru.minestamp.config.LocalConfig
 import java.net.URI
 import kotlinx.serialization.json.Json
 import net.kyori.adventure.text.minimessage.MiniMessage
@@ -25,7 +25,27 @@ object Utils: KoinComponent {
     }
     val mm = MiniMessage.miniMessage()
 
-    fun getS3Client(): S3Client {
+    // S3Clientはコネクションプールを持つため、呼び出しごとに生成せずキャッシュする
+    @Volatile
+    private var cachedS3Client: S3Client? = null
+
+    fun getS3Client(): S3Client =
+        cachedS3Client ?: synchronized(this) {
+            cachedS3Client ?: buildS3Client().also { cachedS3Client = it }
+        }
+
+    /**
+     * リロードでS3設定が変わり得るため、設定再読込時にキャッシュを破棄する。
+     * 旧クライアントはリロード中の実行中リクエストを壊さないようcloseしない
+     * （リロードは稀な管理操作であり、GCに任せる）。
+     */
+    fun resetS3Client() {
+        synchronized(this) {
+            cachedS3Client = null
+        }
+    }
+
+    private fun buildS3Client(): S3Client {
         val config = get<LocalConfig>()
         val s3Config = config.s3Config ?: throw IllegalStateException("S3 config is not found")
         val credential = AwsBasicCredentials.create(s3Config.accessKey, s3Config.secretKey)

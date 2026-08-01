@@ -1,4 +1,4 @@
-package dev.nikomaru.minestamp.data
+package dev.nikomaru.minestamp.config
 
 import dev.nikomaru.minestamp.stamp.Stamp
 import dev.nikomaru.minestamp.stamp.StampManager

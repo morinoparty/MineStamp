@@ -1,4 +1,4 @@
-package dev.nikomaru.minestamp.utils
+package dev.nikomaru.minestamp.ticket
 
 import dev.nikomaru.minestamp.MineStamp
 import org.koin.core.component.KoinComponent

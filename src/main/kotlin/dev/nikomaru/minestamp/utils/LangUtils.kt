@@ -2,7 +2,7 @@ package dev.nikomaru.minestamp.utils
 
 import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.data.I18nData
-import dev.nikomaru.minestamp.data.LocalConfig
+import dev.nikomaru.minestamp.config.LocalConfig
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.koin.core.component.KoinComponent

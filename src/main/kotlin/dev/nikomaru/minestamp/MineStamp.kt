@@ -8,9 +8,9 @@ import dev.nikomaru.minestamp.command.PlayerUtilCommand
 import dev.nikomaru.minestamp.command.PublishTicketCommand
 import dev.nikomaru.minestamp.command.ReloadCommand
 import dev.nikomaru.minestamp.command.parser.StampArgumentParser
-import dev.nikomaru.minestamp.data.FileType
-import dev.nikomaru.minestamp.data.LocalConfig
-import dev.nikomaru.minestamp.files.Config
+import dev.nikomaru.minestamp.config.Config
+import dev.nikomaru.minestamp.config.FileType
+import dev.nikomaru.minestamp.config.LocalConfig
 import dev.nikomaru.minestamp.listener.LoginEvent
 import dev.nikomaru.minestamp.listener.TicketInteractEvent
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
@@ -18,7 +18,8 @@ import dev.nikomaru.minestamp.player.LocalPlayerStampManager
 import dev.nikomaru.minestamp.player.S3PlayerStampManager
 import dev.nikomaru.minestamp.utils.FluentEmojiFont
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
@@ -45,22 +46,27 @@ open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
         if (!plugin.dataFolder.exists()) {
             plugin.dataFolder.mkdir()
         }
-        val br = plugin.javaClass.classLoader.getResourceAsStream("emoji.properties")
+        // フォントロードは重いIOのため、コマンド登録と並行して実行する
         val emojiProperties = Properties()
-        val emojiFont = withContext(Dispatchers.IO) {
-            emojiProperties.load(br)
-            val fontData = plugin.javaClass.classLoader.getResourceAsStream("FluentEmojiColor-CBDT.ttf")
-                ?.use { it.readBytes() }
-                ?: error("FluentEmojiColor-CBDT.ttf is not found in resources.")
-            FluentEmojiFont(fontData)
-        }
+        coroutineScope {
+            val emojiFontDeferred = async(Dispatchers.IO) {
+                val br = plugin.javaClass.classLoader.getResourceAsStream("emoji.properties")
+                emojiProperties.load(br)
+                val fontData = plugin.javaClass.classLoader.getResourceAsStream("FluentEmojiColor-CBDT.ttf")
+                    ?.use { it.readBytes() }
+                    ?: error("FluentEmojiColor-CBDT.ttf is not found in resources.")
+                FluentEmojiFont(fontData)
+            }
+            logger.info("command setting")
+            setCommand()
 
-        loadKoinModules(module {
-            single { emojiProperties }
-            single { emojiFont }
-        })
-        logger.info("command setting")
-        setCommand()
+            // sanitizeRandomConfig（loadConfig内）がフォントに依存するため、Koin登録を待ってから先へ進む
+            val emojiFont = emojiFontDeferred.await()
+            loadKoinModules(module {
+                single { emojiProperties }
+                single { emojiFont }
+            })
+        }
         logger.info("config setting")
         Config.loadConfig()
         logger.info("stamp manager setting")

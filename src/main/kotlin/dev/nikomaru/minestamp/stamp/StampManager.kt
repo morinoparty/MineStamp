@@ -1,8 +1,8 @@
 package dev.nikomaru.minestamp.stamp
 
 import dev.nikomaru.minestamp.MineStamp
-import dev.nikomaru.minestamp.data.FileType
-import dev.nikomaru.minestamp.data.LocalConfig
+import dev.nikomaru.minestamp.config.FileType
+import dev.nikomaru.minestamp.config.LocalConfig
 import dev.nikomaru.minestamp.utils.Utils.objectExists
 import org.apache.commons.math3.distribution.EnumeratedDistribution
 import org.koin.core.component.KoinComponent

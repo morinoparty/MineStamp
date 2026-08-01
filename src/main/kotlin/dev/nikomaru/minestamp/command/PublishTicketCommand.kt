@@ -4,9 +4,9 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.stamp.Stamp
-import dev.nikomaru.minestamp.utils.RSAUtils.getRSAKeyPair
-import dev.nikomaru.minestamp.utils.TicketUtils.getRouletteTicket
-import dev.nikomaru.minestamp.utils.TicketUtils.getUniqueTicket
+import dev.nikomaru.minestamp.ticket.RSAUtils.getRSAKeyPair
+import dev.nikomaru.minestamp.ticket.TicketUtils.getRouletteTicket
+import dev.nikomaru.minestamp.ticket.TicketUtils.getUniqueTicket
 import dev.nikomaru.minestamp.utils.LangUtils.sendI18nRichMessage
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player

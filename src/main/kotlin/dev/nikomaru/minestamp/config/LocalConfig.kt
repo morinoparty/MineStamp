@@ -1,4 +1,4 @@
-package dev.nikomaru.minestamp.data
+package dev.nikomaru.minestamp.config
 
 import kotlinx.serialization.Serializable
 

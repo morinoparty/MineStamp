@@ -1,6 +1,7 @@
 package dev.nikomaru.minestamp.api
 
 import dev.nikomaru.minestamp.MineStamp
+import dev.nikomaru.minestamp.api.handler.StampHandler
 import party.morino.mineauth.api.EndpointRegistrationException
 import party.morino.mineauth.api.MineAuthApi
 

@@ -6,8 +6,8 @@ import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.StampManager
 import dev.nikomaru.minestamp.utils.LangUtils.sendI18nRichMessage
-import dev.nikomaru.minestamp.utils.RSAUtils
-import dev.nikomaru.minestamp.utils.TicketUtils
+import dev.nikomaru.minestamp.ticket.RSAUtils
+import dev.nikomaru.minestamp.ticket.TicketUtils
 import kotlinx.coroutines.delay
 import org.bukkit.Material
 import org.bukkit.NamespacedKey

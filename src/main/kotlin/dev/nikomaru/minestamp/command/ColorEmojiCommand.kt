@@ -3,14 +3,18 @@ package dev.nikomaru.minestamp.command
 import com.comphenix.protocol.PacketType
 import com.comphenix.protocol.ProtocolLibrary
 import com.comphenix.protocol.ProtocolManager
+import com.comphenix.protocol.events.PacketContainer
 import com.comphenix.protocol.wrappers.WrappedParticle
-import dev.nikomaru.minestamp.data.PlayerDefaultEmojiConfigData
+import dev.nikomaru.minestamp.config.PlayerDefaultEmojiConfigData
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.Stamp
 import dev.nikomaru.minestamp.utils.LangUtils.sendI18nRichMessage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import org.bukkit.Bukkit
+import kotlinx.coroutines.launch
 import org.bukkit.Color
+import org.bukkit.Location
 import org.bukkit.Particle
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
@@ -23,13 +27,15 @@ import org.incendo.cloud.annotations.Permission
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 
+import java.awt.image.BufferedImage
 import java.util.*
-import java.util.concurrent.Executors
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.cos
 import kotlin.math.sin
 
 class ColorEmojiCommand: KoinComponent {
-    private val rejectSummon = hashMapOf<UUID, Boolean>()
+    // コルーチンから並行アクセスされるため並行コレクションを使う
+    private val summonCooldown: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
     @Command("minestamp advance <stamp> [time] [size] [particleSize] [accuracy]")
     @CommandDescription("advanced command")
@@ -70,92 +76,81 @@ class ColorEmojiCommand: KoinComponent {
         sender: Player, stamp: Stamp, config: PlayerDefaultEmojiConfigData
     ) {
         val waitSecond = config.waitSecond
-        if (rejectSummon[sender.uniqueId] == true) {
+        if (!summonCooldown.add(sender.uniqueId)) {
             sender.sendI18nRichMessage("cannot-summon-in-a-row", waitSecond)
             return
         }
-        rejectSummon[sender.uniqueId] = true
+        try {
+            val pm = ProtocolLibrary.getProtocolManager()
+            // 位置・色はフレーム間で不変のため、パケットは1回だけ生成して各フレームで再送する
+            val packets = buildParticlePackets(stamp.getStamp(), config, sender.location, pm)
+            if (packets.isEmpty()) return
+            val count = 8
 
-        val image = stamp.getStamp()
-        val time = config.second
-        val size = config.size
-        val particleSize = config.particleSize.toFloat()
-        val location = sender.location
-        val locX = location.x
-        val locY = location.y
-        val locZ = location.z
-        val locYaw = location.yaw
-        val decrease = image.width / config.accuracy
-        val list = arrayListOf<Pair<Pair<Int, Int>, Int>>()
-        repeat(image.width) { x ->
-            repeat(image.height) { y ->
-                if (image.getRGB(x, y) != 0 && x % decrease == 0 && y % decrease == 0) {
-                    list.add(Pair(Pair(x, y), image.getRGB(x, y)))
+            repeat(count * config.second) {
+                coroutineScope {
+                    packets.chunked(256).forEach { chunk ->
+                        launch(Dispatchers.IO) {
+                            chunk.forEach(pm::broadcastServerPacket)
+                        }
+                    }
+                }
+                delay(1000L / count)
+            }
+
+            delay((1000L * waitSecond).toLong())
+        } finally {
+            // 例外時もクールダウンが残らないよう必ず解除する
+            summonCooldown.remove(sender.uniqueId)
+        }
+    }
+
+    private data class ParticlePixel(val x: Int, val y: Int, val rgb: Int)
+
+    private fun buildParticlePackets(
+        image: BufferedImage, config: PlayerDefaultEmojiConfigData, location: Location, pm: ProtocolManager
+    ): List<PacketContainer> {
+        val stride = (image.width / config.accuracy).coerceAtLeast(1)
+        val pixels = buildList {
+            for (x in 0 until image.width step stride) {
+                for (y in 0 until image.height step stride) {
+                    val rgb = image.getRGB(x, y)
+                    if (rgb != 0) add(ParticlePixel(x, y, rgb))
                 }
             }
         }
+        if (pixels.isEmpty()) return emptyList()
 
-        val (xMax, xMin, yMax, yMin) = getCorner(list) ?: return
-        val width = (xMax - xMin).toDouble() // 180 - 20 = 160
-        val midWidth = width / 2 // 80
+        val xMin = pixels.minOf { it.x }
+        val xMax = pixels.maxOf { it.x }
+        val yMax = pixels.maxOf { it.y }
+        val yMin = pixels.minOf { it.y }
+        val width = (xMax - xMin).toDouble()
+        val midWidth = width / 2
         val height = (yMax - yMin).toDouble()
-        val pm = ProtocolLibrary.getProtocolManager()
-        val count = 8
+        val particleSize = config.particleSize.toFloat()
+        val size = config.size
 
-        val executor = Executors.newVirtualThreadPerTaskExecutor()
-
-        repeat(count * time) {
-            val tasks = list.map { it ->
-                Runnable {
-                    val position = it.first
-                    val x = (position.first - (xMin + midWidth)) / width * 3 * width / height * size
-                    val y = (yMax - position.second) / height * 3 * size
-                    val color = Color.fromARGB(it.second)
-                    sendParticlePacket(color, particleSize, locX, x, locYaw, locY, y, locZ, pm)
-                }
-            }
-            tasks.forEach { executor.execute(it) }
-            delay(1000L / count)
+        return pixels.map { pixel ->
+            val x = (pixel.x - (xMin + midWidth)) / width * 3 * width / height * size
+            val y = (yMax - pixel.y) / height * 3 * size
+            createParticlePacket(Color.fromARGB(pixel.rgb), particleSize, location, x, y, pm)
         }
-        executor.shutdown()
-
-        delay((1000L * waitSecond).toLong())
-        rejectSummon.remove(sender.uniqueId)
-
     }
 
-    private fun getCorner(list: ArrayList<Pair<Pair<Int, Int>, Int>>): List<Int>? = with(list) {
-        val xValues = map { it.first.first }
-        val yValues = map { it.first.second }
-        val xMax = xValues.maxOrNull() ?: return null
-        val xMin = xValues.minOrNull() ?: return null
-        val yMax = yValues.maxOrNull() ?: return null
-        val yMin = yValues.minOrNull() ?: return null
-        listOf(xMax, xMin, yMax, yMin)
-    }
-
-    private fun sendParticlePacket(
-        color: Color,
-        particleSize: Float,
-        locX: Double,
-        x: Double,
-        locYaw: Float,
-        locY: Double,
-        y: Double,
-        locZ: Double,
-        pm: ProtocolManager
-    ) {
+    private fun createParticlePacket(
+        color: Color, particleSize: Float, location: Location, x: Double, y: Double, pm: ProtocolManager
+    ): PacketContainer {
         val packet = pm.createPacket(PacketType.Play.Server.WORLD_PARTICLES)
         packet.newParticles.write(
             0, WrappedParticle.create(
                 Particle.DUST, Particle.DustOptions(color, particleSize)
             )
         )
-        val absX = locX + (x * cos(-locYaw.toDouble() / 180 * Math.PI))
-        val absZ = locZ + (x * sin(locYaw.toDouble() / 180 * Math.PI))
-        val absY = locY + y + 2
+        val absX = location.x + (x * cos(-location.yaw.toDouble() / 180 * Math.PI))
+        val absZ = location.z + (x * sin(location.yaw.toDouble() / 180 * Math.PI))
+        val absY = location.y + y + 2
         packet.doubles.write(0, absX).write(1, absY).write(2, absZ)
-        pm.broadcastServerPacket(packet)
+        return packet
     }
 }
-

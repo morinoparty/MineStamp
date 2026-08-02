@@ -3,6 +3,7 @@ package dev.nikomaru.minestamp.stamp
 import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.config.FileType
 import dev.nikomaru.minestamp.config.LocalConfig
+import dev.nikomaru.minestamp.utils.FluentEmojiFont
 import dev.nikomaru.minestamp.utils.Utils.objectExists
 import org.apache.commons.math3.distribution.EnumeratedDistribution
 import org.koin.core.component.KoinComponent
@@ -40,6 +41,16 @@ object StampManager: KoinComponent {
         val stamp = EmojiStamp(shortCode)
         // EmojiStamp already logs a warning when the image cannot be resolved
         return if (stamp.hasImage) stamp else null
+    }
+
+    /**
+     * フォント更新（Noto emoji fallback削除）で描画できなくなった絵文字コードか。
+     * 絵文字以外のコード（画像スタンプ等）はfalseを返す。
+     */
+    fun isUnrenderableEmoji(code: String): Boolean {
+        if (!code.startsWith(":")) return false
+        val spec = emojiProperties.getProperty(code) ?: return true
+        return !get<FluentEmojiFont>().hasGlyph(spec)
     }
 
     fun getRandomStamp(): Stamp? {

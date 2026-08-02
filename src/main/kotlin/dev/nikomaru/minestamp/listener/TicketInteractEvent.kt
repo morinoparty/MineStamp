@@ -51,12 +51,12 @@ class TicketInteractEvent: Listener, KoinComponent {
                 item.amount -= 1
                 event.hand?.let { player.inventory.setItem(it, item) }
                 val rsaKey = RSAUtils.getRSAKeyPair() ?: run {
-                    player.sendI18nRichMessage("not-found-keypair-need-report-admin")
+                    player.sendI18nRichMessage("minestamp.not-found-keypair-need-report-admin")
                     return
                 }
                 val algorithm = Algorithm.RSA256(rsaKey.second, rsaKey.first)
                 val randomTicket = TicketUtils.getRandomTicket(algorithm) ?: run {
-                    player.sendI18nRichMessage("not-found-stamp-need-report-admin")
+                    player.sendI18nRichMessage("minestamp.not-found-stamp-need-report-admin")
                     return
                 }
                 player.inventory.addItem(randomTicket)
@@ -66,16 +66,16 @@ class TicketInteractEvent: Listener, KoinComponent {
                 val shortCode = JWT.decode(jwt).claims["shortCode"]?.asString() ?: return
                 val stamp = StampManager.getStamp(shortCode) ?: return
                 if(playerStampManager.availableStamp(player, stamp)) {
-                    player.sendI18nRichMessage("already-haven")
+                    player.sendI18nRichMessage("minestamp.already-haven")
                     return
                 }
                 item.amount -= 1
                 event.hand?.let { player.inventory.setItem(it, item) }
                 playerStampManager.addStamp(player, stamp)
-                player.sendI18nRichMessage("available-stamp", stamp.shortCode)
+                player.sendI18nRichMessage("minestamp.available-stamp", stamp.shortCode)
             }
             else -> {
-                player.sendI18nRichMessage("invalid-ticket")
+                player.sendI18nRichMessage("minestamp.invalid-ticket")
             }
         }
         rejectInteract[player.uniqueId] = true

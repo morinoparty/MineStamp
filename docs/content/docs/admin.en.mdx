@@ -30,6 +30,9 @@ description: Generate a ticket to activate a specific stamp<br />
 command: `/minestamp reload`<br />
 description: Reloads the settings. Also, if images etc. are added, they will be reflected by executing this command.<br />
 
+command: `/minestamp purge`<br />
+description: Permanently removes emojis that became unrenderable after the font update from all player data and random.json. Removed entries are reported as `deleted <playerName>: <shortCode>`.<br />
+
 ## Add language settings
 
 Add a file with the language code in the lang directory. The file name is the language code. The file format is
@@ -44,6 +47,7 @@ original file is [here](https://github.com/Nlkomaru/MineStamp/blob/master/src/ma
 ### config.json
 
 Basic configuration. This will always be placed on each server.
+The `stamp` section contains the rendering parameters used when summoning stamps.
 
 ```json
 {
@@ -54,7 +58,14 @@ Basic configuration. This will always be placed on each server.
     "accessKey" : "minio",
     "secretKey" : "minio123"
   },
-  "lang" : "en_US"
+  "lang" : "en_US",
+  "stamp": {
+    "second": 3,
+    "size": 1.8,
+    "particleSize": 1.0,
+    "accuracy": 32,
+    "waitSecond": 5.0
+  }
 }
 ```
 
@@ -76,12 +87,12 @@ This is the setting when using roulette tickets. Set the shortCode and the corre
 
 ### player-default.json
 
+The list of default stamps every player can use from the start.
+The rendering parameters (`second`, etc.) have moved to the `stamp` section of config.json.
+Files in the old format are migrated automatically at startup.
+
 ```json
 {
-  "second": 1,
-  "accuracy": 32,
-  "size": 3,
-  "particleSize": 1.5,
   "defaultEmoji": [
     ":cucumber:",
     ":thinking-face:",

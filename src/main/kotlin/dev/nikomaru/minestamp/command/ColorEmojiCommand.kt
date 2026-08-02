@@ -5,7 +5,8 @@ import com.comphenix.protocol.ProtocolLibrary
 import com.comphenix.protocol.ProtocolManager
 import com.comphenix.protocol.events.PacketContainer
 import com.comphenix.protocol.wrappers.WrappedParticle
-import dev.nikomaru.minestamp.config.PlayerDefaultEmojiConfigData
+import dev.nikomaru.minestamp.config.LocalConfig
+import dev.nikomaru.minestamp.config.StampRenderConfig
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.Stamp
 import dev.nikomaru.minestamp.utils.LangUtils.sendI18nRichMessage
@@ -48,10 +49,12 @@ class ColorEmojiCommand: KoinComponent {
         @Argument("accuracy") @Range(min = "1", max = "128") @Default("32") accuracy: Int,
     ) {
         if (sender !is Player) {
-            sender.sendI18nRichMessage("only-execute-from-player")
+            sender.sendI18nRichMessage("minestamp.only-execute-from-player")
             return
         }
-        val config = PlayerDefaultEmojiConfigData(time, size, particleSize, accuracy)
+        val config = get<LocalConfig>().stamp.copy(
+            second = time, size = size, particleSize = particleSize, accuracy = accuracy
+        )
         summonEmoji(sender, stamp, config)
     }
 
@@ -60,24 +63,24 @@ class ColorEmojiCommand: KoinComponent {
         sender: CommandSender, @Argument("stamp") stamp: Stamp,
     ) {
         if (sender !is Player) {
-            sender.sendI18nRichMessage("only-execute-from-player")
+            sender.sendI18nRichMessage("minestamp.only-execute-from-player")
             return
         }
         val playerStampManager = get<AbstractPlayerStampManager>()
         if (!playerStampManager.availableStamp(sender, stamp)) {
-            sender.sendI18nRichMessage("not-have-the-emoji")
+            sender.sendI18nRichMessage("minestamp.not-have-the-emoji")
             return
         }
-        val config = get<PlayerDefaultEmojiConfigData>()
+        val config = get<LocalConfig>().stamp
         summonEmoji(sender, stamp, config)
     }
 
     private suspend fun summonEmoji(
-        sender: Player, stamp: Stamp, config: PlayerDefaultEmojiConfigData
+        sender: Player, stamp: Stamp, config: StampRenderConfig
     ) {
         val waitSecond = config.waitSecond
         if (!summonCooldown.add(sender.uniqueId)) {
-            sender.sendI18nRichMessage("cannot-summon-in-a-row", waitSecond)
+            sender.sendI18nRichMessage("minestamp.cannot-summon-in-a-row", waitSecond)
             return
         }
         try {
@@ -108,7 +111,7 @@ class ColorEmojiCommand: KoinComponent {
     private data class ParticlePixel(val x: Int, val y: Int, val rgb: Int)
 
     private fun buildParticlePackets(
-        image: BufferedImage, config: PlayerDefaultEmojiConfigData, location: Location, pm: ProtocolManager
+        image: BufferedImage, config: StampRenderConfig, location: Location, pm: ProtocolManager
     ): List<PacketContainer> {
         val stride = (image.width / config.accuracy).coerceAtLeast(1)
         val pixels = buildList {

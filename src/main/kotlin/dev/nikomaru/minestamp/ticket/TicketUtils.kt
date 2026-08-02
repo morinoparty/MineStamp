@@ -6,8 +6,7 @@ import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.stamp.Stamp
 import dev.nikomaru.minestamp.stamp.EmojiStamp
 import dev.nikomaru.minestamp.stamp.StampManager
-import dev.nikomaru.minestamp.utils.LangUtils.getI18nMessage
-import dev.nikomaru.minestamp.utils.Utils.mm
+import dev.nikomaru.minestamp.utils.LangUtils.i18nComponent
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import org.bukkit.inventory.ItemStack
@@ -21,8 +20,8 @@ object TicketUtils: KoinComponent {
     fun getRouletteTicket(jwt: String): ItemStack {
         val ticket = ItemStack(Material.PAPER)
         val meta = ticket.itemMeta
-        meta.displayName(mm.deserialize(getI18nMessage("roulette-ticket")))
-        meta.lore(listOf(mm.deserialize(getI18nMessage("generate-ticket-by-right-click"))))
+        meta.displayName(i18nComponent("minestamp.roulette-ticket"))
+        meta.lore(listOf(i18nComponent("minestamp.generate-ticket-by-right-click")))
         val namespaceKey = NamespacedKey(plugin, "ticket")
         meta.persistentDataContainer.set(namespaceKey, PersistentDataType.STRING, jwt)
         ticket.itemMeta = meta
@@ -35,22 +34,15 @@ object TicketUtils: KoinComponent {
             JWT.create().withIssuer("minestamp").withClaim("type", "unique").withClaim("shortCode", stamp.shortCode)
                 .sign(algorithm)
         val meta = ticket.itemMeta
-        lateinit var type: String
-        lateinit var preview: String
-        if (stamp is EmojiStamp) {
-            type = getI18nMessage("type-emoji")
-            preview = stamp.char
-        } else {
-            type = getI18nMessage("type-image")
-            preview = ""
-        }
+        val type = if (stamp is EmojiStamp) i18nComponent("minestamp.type-emoji") else i18nComponent("minestamp.type-image")
+        val preview = if (stamp is EmojiStamp) stamp.char else ""
 
-        meta.displayName(mm.deserialize(getI18nMessage("emoji-ticket", preview)))
+        meta.displayName(i18nComponent("minestamp.emoji-ticket", preview))
         meta.lore(
             listOf(
-                mm.deserialize(getI18nMessage("get-stamp-by-right-click")),
-                mm.deserialize(getI18nMessage("stamp-type", type)),
-                mm.deserialize(getI18nMessage("stamp-shortcode", stamp.shortCode))
+                i18nComponent("minestamp.get-stamp-by-right-click"),
+                i18nComponent("minestamp.stamp-type", type),
+                i18nComponent("minestamp.stamp-shortcode", stamp.shortCode)
             )
         )
         val namespaceKey = NamespacedKey(plugin, "ticket")

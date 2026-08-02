@@ -6,6 +6,7 @@ import dev.nikomaru.minestamp.api.MineAuthIntegration
 import dev.nikomaru.minestamp.command.ColorEmojiCommand
 import dev.nikomaru.minestamp.command.PlayerUtilCommand
 import dev.nikomaru.minestamp.command.PublishTicketCommand
+import dev.nikomaru.minestamp.command.PurgeCommand
 import dev.nikomaru.minestamp.command.ReloadCommand
 import dev.nikomaru.minestamp.command.parser.StampArgumentParser
 import dev.nikomaru.minestamp.config.Config
@@ -113,7 +114,7 @@ open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
 
         with(annotationParser) {
             parse(
-                ColorEmojiCommand(), PublishTicketCommand(), ReloadCommand(), PlayerUtilCommand()
+                ColorEmojiCommand(), PublishTicketCommand(), ReloadCommand(), PlayerUtilCommand(), PurgeCommand()
             )
         }
 

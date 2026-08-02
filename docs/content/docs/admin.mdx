@@ -30,11 +30,15 @@ description: 特定のスタンプを有効化するためのチケットを生�
 command: `/minestamp reload`<br />
 description: 設定を再読み込みします また、画像等を追加した場合もこのコマンドを実行することで反映されます<br />
 
+command: `/minestamp purge`<br />
+description: フォント更新で描画できなくなった絵文字を、全プレイヤーデータとrandom.jsonから完全に削除します 削除された項目は `deleted <playerName>: <shortCode>` の形式で表示されます<br />
+
 ## コンフィグ一覧
 
 ### config.json
 
 基本的な設定です。 これは必ず各サーバーに置かれることになります。
+`stamp` セクションはスタンプ召喚時の描画パラメータです。
 
 ```json
 {
@@ -44,6 +48,14 @@ description: 設定を再読み込みします また、画像等を追加した
     "bucket" : "test",
     "accessKey" : "minio",
     "secretKey" : "minio123"
+  },
+  "lang": "ja_JP",
+  "stamp": {
+    "second": 3,
+    "size": 1.8,
+    "particleSize": 1.0,
+    "accuracy": 32,
+    "waitSecond": 5.0
   }
 }
 ```
@@ -66,12 +78,12 @@ description: 設定を再読み込みします また、画像等を追加した
 
 ### player-default.json
 
+全プレイヤーが最初から使える既定スタンプの一覧です。
+描画パラメータ (`second` など) は config.json の `stamp` セクションに移動しました。
+旧フォーマットのファイルは起動時に自動で移行されます。
+
 ```json
 {
-  "second": 1,
-  "accuracy": 32,
-  "size": 3,
-  "particleSize": 1.5,
   "defaultEmoji": [
     ":cucumber:",
     ":thinking-face:",

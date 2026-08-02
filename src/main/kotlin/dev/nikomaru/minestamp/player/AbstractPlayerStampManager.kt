@@ -31,4 +31,10 @@ abstract class AbstractPlayerStampManager {
     abstract fun addStamp(player: Player, stamp: Stamp)
     abstract fun removeStamp(player: Player, stamp: Stamp)
     abstract fun availableStamp(player: Player, stamp: Stamp): Boolean
+
+    /** 保存済みの全プレイヤーデータ（生shortCode）を読み込む。purge等の全探索用 */
+    abstract fun loadAllPlayerData(): Map<UUID, List<String>>
+
+    /** 指定プレイヤーの所持スタンプを保存する。オンラインならメモリ上のデータも更新する */
+    abstract fun savePlayerData(uuid: UUID, shortCodes: List<String>)
 }

@@ -31,8 +31,8 @@ class PublishTicketCommand: KoinComponent {
         val publicKeyFile = plugin.dataFolder.resolve("publicKey")
 
         if (privateKeyFile.exists() || publicKeyFile.exists()) {
-            actor.sendI18nRichMessage("already-exist-keyPair")
-            actor.sendI18nRichMessage("execute-after-remove")
+            actor.sendI18nRichMessage("minestamp.already-exist-keyPair")
+            actor.sendI18nRichMessage("minestamp.execute-after-remove")
             return
         }
         val keyGenerator = KeyPairGenerator.getInstance("RSA")
@@ -42,7 +42,7 @@ class PublishTicketCommand: KoinComponent {
         privateKeyFile.writeBytes(privateKey.encoded)
         val publicKey = keyPair.public
         publicKeyFile.writeBytes(publicKey.encoded)
-        actor.sendI18nRichMessage("generate-keyPair")
+        actor.sendI18nRichMessage("minestamp.generate-keyPair")
     }
 
     @Command("publish roulette")
@@ -50,8 +50,8 @@ class PublishTicketCommand: KoinComponent {
     @Permission("minestamp.command.publish.roulette")
     fun publishRandom(actor: Player) {
         val rsaKey = getRSAKeyPair() ?: run {
-            actor.sendI18nRichMessage("not-found-keyPair")
-            actor.sendI18nRichMessage("need-generate-keyPair")
+            actor.sendI18nRichMessage("minestamp.not-found-keyPair")
+            actor.sendI18nRichMessage("minestamp.need-generate-keyPair")
             return
         }
         val algorithm = Algorithm.RSA256(rsaKey.second, rsaKey.first)
@@ -65,8 +65,8 @@ class PublishTicketCommand: KoinComponent {
     @Permission("minestamp.command.publish.unique")
     fun publishUnique(actor: Player, stamp: Stamp) {
         val rsaKey = getRSAKeyPair() ?: run {
-            actor.sendI18nRichMessage("not-found-keyPair")
-            actor.sendI18nRichMessage("need-generate-keyPair")
+            actor.sendI18nRichMessage("minestamp.not-found-keyPair")
+            actor.sendI18nRichMessage("minestamp.need-generate-keyPair")
             return
         }
         val algorithm = Algorithm.RSA256(rsaKey.second, rsaKey.first)

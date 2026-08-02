@@ -13,6 +13,6 @@ class ReloadCommand {
     @Permission("minestamp.command.reload")
     suspend fun reload(sender: CommandSender) {
         Config.loadConfig()
-        sender.sendI18nRichMessage("reloaded-config")
+        sender.sendI18nRichMessage("minestamp.reloaded-config")
     }
 }

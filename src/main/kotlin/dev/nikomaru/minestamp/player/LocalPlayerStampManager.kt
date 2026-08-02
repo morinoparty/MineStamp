@@ -68,4 +68,19 @@ class LocalPlayerStampManager: AbstractPlayerStampManager(),  KoinComponent {
         val playerStamp = playerEmoji[player.uniqueId] ?: emptyList()
         return (playerStamp + default).map{it.shortCode}.contains(stamp.shortCode)
     }
+
+    override fun loadAllPlayerData(): Map<UUID, List<String>> {
+        val files = plugin.dataFolder.resolve("player").listFiles() ?: return emptyMap()
+        return files.filter { it.extension == "json" }.mapNotNull { file ->
+            val uuid = runCatching { UUID.fromString(file.nameWithoutExtension) }.getOrNull()
+                ?: return@mapNotNull null
+            uuid to json.decodeFromString(PlayerData.serializer(), file.readText()).emoji
+        }.toMap()
+    }
+
+    override fun savePlayerData(uuid: UUID, shortCodes: List<String>) {
+        val file = plugin.dataFolder.resolve("player").resolve("$uuid.json")
+        file.writeText(json.encodeToString(PlayerData(emoji = shortCodes)))
+        org.bukkit.Bukkit.getPlayer(uuid)?.let { store(it, shortCodes, plugin.logger) }
+    }
 }

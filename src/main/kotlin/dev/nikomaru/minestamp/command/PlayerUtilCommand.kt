@@ -9,22 +9,43 @@ import org.incendo.cloud.annotations.Argument
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.incendo.cloud.annotations.Command
-import org.incendo.cloud.annotations.CommandDescription
 import org.incendo.cloud.annotations.Default
-import org.incendo.cloud.annotations.Permission
 
 @Command("minestamp")
 class PlayerUtilCommand: KoinComponent {
 
     @Command("help")
-    fun help(actor: CommandSender) { //クリックしたらurlに飛ぶ
-        actor.sendI18nRichMessage("help-url")
+    fun help(actor: CommandSender) {
+        actor.sendI18nRichMessage("minestamp.help.header")
+        actor.sendI18nRichMessage("minestamp.help.stamp")
+        actor.sendI18nRichMessage("minestamp.help.list")
+        actor.sendI18nRichMessage("minestamp.help.help")
+        // 権限のあるコマンドだけを表示する
+        if (actor.hasPermission("minestamp.command.advance")) {
+            actor.sendI18nRichMessage("minestamp.help.advance")
+        }
+        if (actor.hasPermission("minestamp.command.publish.roulette")) {
+            actor.sendI18nRichMessage("minestamp.help.publish-roulette")
+        }
+        if (actor.hasPermission("minestamp.command.publish.unique")) {
+            actor.sendI18nRichMessage("minestamp.help.publish-unique")
+        }
+        if (actor.hasPermission("minestamp.command.publish.generate")) {
+            actor.sendI18nRichMessage("minestamp.help.generate-keypair")
+        }
+        if (actor.hasPermission("minestamp.command.reload")) {
+            actor.sendI18nRichMessage("minestamp.help.reload")
+        }
+        if (actor.hasPermission("minestamp.command.purge")) {
+            actor.sendI18nRichMessage("minestamp.help.purge")
+        }
+        actor.sendI18nRichMessage("minestamp.help.url")
     }
 
 
     @Command("list [reset]")
     fun showEmojiList(actor: Player , @Argument("reset") @Default("4") resetCount: Int) {
-        actor.sendI18nRichMessage("current-emoji-list")
+        actor.sendI18nRichMessage("minestamp.current-emoji-list")
         val playerStampManager: AbstractPlayerStampManager = get<AbstractPlayerStampManager>()
         val list = playerStampManager.getPlayerStamp(actor)
         list.sortBy { it.shortCode }

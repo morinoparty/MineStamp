@@ -10,7 +10,7 @@ awsSdkS3 = "2.46.7"
 commonsMath3 = "3.6.1"
 protocolLib = "5.4.0"
 javaJwt = "4.6.0"
-mineauthApi = "0.3.4"
+mineauthApi = "0.3.5"
 junit = "5.14.1"
 
 [libraries]

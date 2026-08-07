@@ -11,7 +11,7 @@ commonsMath3 = "3.6.1"
 protocolLib = "5.4.0"
 javaJwt = "4.6.0"
 mineauthApi = "0.3.4"
-junit = "5.14.1"
+junit = "6.1.2"
 
 [libraries]
 paper-api = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }

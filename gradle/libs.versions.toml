@@ -1,4 +1,5 @@
 [versions]
+kotlin = "2.4.20"
 paper = "26.2.build.129-stable"
 mccoroutine = "2.23.0"
 cloud = "2.2.0-SNAPSHOT"
@@ -6,7 +7,7 @@ cloudPaper = "2.0.1"
 koinVersion = "4.2.2"
 coroutine = "1.11.0"
 serialization = "1.11.0"
-awsSdkS3 = "2.55.4"
+awsSdkS3 = "2.55.3"
 commonsMath3 = "3.6.1"
 protocolLib = "5.4.0"
 javaJwt = "4.6.1"
@@ -24,9 +25,13 @@ cloud-kotlin-coroutines = {group = "org.incendo", name = "cloud-kotlin-coroutine
 cloud-kotlin-coroutines-annotations = {group = "org.incendo", name = "cloud-kotlin-coroutines-annotations", version.ref = "cloud"}
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutine" }
+kotlinx-coroutines-jdk8 = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-jdk8", version.ref = "coroutine" }
+kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlin" }
+kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlin" }
 mccoroutine-bukkit-api = { group = "com.github.shynixn.mccoroutine", name = "mccoroutine-bukkit-api", version.ref = "mccoroutine" }
 mccoroutine-bukkit-core = { group = "com.github.shynixn.mccoroutine", name = "mccoroutine-bukkit-core", version.ref = "mccoroutine" }
-koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koinVersion" }
+# Paper の libraries（Maven の POM で解決される）は KMP の Gradle メタデータを読まないため JVM 版を直接指定する
+koin-core-jvm = { group = "io.insert-koin", name = "koin-core-jvm", version.ref = "koinVersion" }
 awsSdkS3 = { group = "software.amazon.awssdk", name = "s3", version.ref = "awsSdkS3" }
 commonsMath3 = { group = "org.apache.commons", name = "commons-math3", version.ref = "commonsMath3" }
 protocolLib = { group = "net.dmulloy2", name = "ProtocolLib", version.ref = "protocolLib" }
@@ -39,8 +44,8 @@ junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform
 run-paper = { id = "xyz.jpenilla.run-paper", version = "3.1.0" }
 resource-factory = { id = "xyz.jpenilla.resource-factory", version = "1.4.0" }
 shadow = { id = "com.gradleup.shadow", version = "9.6.1" }
-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version = "2.4.20" }
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version = "2.4.20" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 dokka = { id = "org.jetbrains.dokka", version = "2.2.0" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 spotless = { id = "com.diffplug.spotless", version = "8.10.2" }

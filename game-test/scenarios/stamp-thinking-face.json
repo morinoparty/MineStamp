@@ -1,4 +1,6 @@
 [
+  { "action": "wait_for_log", "source": "server", "pattern": "\\[MineStamp\\] Enabling MineStamp", "timeout": 5 },
+  { "action": "assert_no_log", "source": "server", "pattern": "Unsupported class file major version|Failed to remap plugin|Error occurred while enabling MineStamp" },
   { "action": "wait_for_log", "source": "client", "pattern": "\\[CHAT\\] MineStampTest joined the game", "timeout": 300 },
   { "action": "server_command", "command": "op MineStampTest" },
   { "action": "server_command", "command": "time set noon" },
@@ -15,5 +17,5 @@
   { "action": "wait_for_log", "source": "server", "pattern": "MineStampTest issued server command: /st :thinking-face:", "timeout": 10 },
   { "action": "wait", "seconds": 1 },
   { "action": "screenshot", "name": "stamp-thinking-face" },
-  { "action": "assert_no_log", "source": "client", "pattern": "\\[CHAT\\].*(Unknown or incomplete command|Stamp not found|do not have that stamp|cannot summon)" }
+  { "action": "assert_no_log", "source": "client", "pattern": "\\[CHAT\\].*(Unknown( or incomplete)? command|Stamp not found|do not have that stamp|cannot summon)" }
 ]

@@ -68,6 +68,6 @@ uv run --project game-test game-test/scripts/versions.py 1.20-
 ```
 
 The test needs Minecraft 1.20 or later, because it joins with Quick Play and assumes the 1.18+ world height.
-On GitHub Actions, it runs for each version in `1.20-` on every pull request. When you start the `Game test` workflow manually, you can pick a version range and a scenario.
+On GitHub Actions, it runs for each version in `1.21.6-` on every pull request. MineStamp is compiled to Java 25 bytecode, and Paper 1.21.4 and earlier cannot load it (`Unsupported class file major version 69`), so older versions are not in the default range. When you start the `Game test` workflow manually, you can pick a version range and a scenario.
 
 Running the test starts the Minecraft server and client, and accepts the [Minecraft EULA](https://www.minecraft.net/eula). Server and client files are never uploaded as artifacts.

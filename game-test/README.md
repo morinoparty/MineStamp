@@ -74,7 +74,7 @@ To run the unit tests for the scenario tooling:
 uv run --project game-test python -B -m unittest discover -s game-test/scripts -p 'test_*.py'
 ```
 
-On GitHub Actions, `.github/workflows/game_test.yml` runs this on every pull request for each version in `1.20-`. You can also start it manually and pick a version range and a scenario.
+On GitHub Actions, `.github/workflows/game_test.yml` runs this on every pull request for each version in `1.21.6-`. MineStamp is compiled to Java 25 bytecode, and Paper 1.21.4 and earlier cannot load it (`Unsupported class file major version 69`), so older versions are not in the default range. You can also start it manually and pick a version range and a scenario.
 
 Running the test starts the Minecraft server and client, and accepts the [Minecraft EULA](https://www.minecraft.net/eula). Server and client files are never uploaded as artifacts.
 

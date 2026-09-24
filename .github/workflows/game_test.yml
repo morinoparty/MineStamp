@@ -6,7 +6,7 @@ on:
     inputs:
       minecraft-versions:
         description: 'Versions: "latest", "1.21.11", "1.20.5-" or "1.20.5-1.21.11"'
-        default: "1.20-"
+        default: "1.21.6-"
       scenario:
         description: "Scenario file under game-test/scenarios"
         default: stamp-thinking-face.json
@@ -24,7 +24,7 @@ jobs:
     outputs:
       matrix: ${{ steps.resolve.outputs.matrix }}
     env:
-      MINECRAFT_VERSIONS: ${{ inputs.minecraft-versions || '1.20-' }}
+      MINECRAFT_VERSIONS: ${{ inputs.minecraft-versions || '1.21.6-' }}
     steps:
       - uses: actions/checkout@v7
         with:

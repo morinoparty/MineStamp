@@ -36,7 +36,7 @@ jobs:
       # (2.0 の on は文字列1つのみ許可し、リストを渡すとバリデーションエラーになる)。
       # v2 タグは常に fukurou 2.1.0 以降を指している必要がある
       - id: versions
-        uses: morinoparty/fukurou/versions@feature/parallel-repeat
+        uses: morinoparty/fukurou/versions@v2
         with:
           # MineStamp は Java 25 のバイトコードのため、Paper 1.21.4 以前では読み込めない
           minecraft-version: ${{ inputs.minecraft-versions || '1.21.6-' }}
@@ -98,7 +98,7 @@ jobs:
 
       # fukurou 2.1 が必要な理由は versions ジョブのコメントを参照
       - id: fukurou
-        uses: morinoparty/fukurou@feature/parallel-repeat
+        uses: morinoparty/fukurou@v2
         with:
           accept-eula: true
           minecraft-version: ${{ matrix.minecraft-version }}
@@ -141,7 +141,7 @@ jobs:
             4d92b739-40fc-467f-97fa-b49900deb52c > AWS_SECRET_ACCESS_KEY
 
       - id: ui
-        uses: morinoparty/fukurou/ui@feature/parallel-repeat
+        uses: morinoparty/fukurou/ui@v2
         with:
           title: MineStamp ${{ needs.build.outputs.sha }}
           upload: auto

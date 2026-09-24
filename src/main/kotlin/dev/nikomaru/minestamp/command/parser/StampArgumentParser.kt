@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.command.parser
 
 import dev.nikomaru.minestamp.MineStamp
@@ -20,23 +29,25 @@ import org.koin.core.component.get
 import org.koin.core.component.inject
 import java.util.Properties
 
-
-class StampArgumentParser<CommandSender> : ArgumentParser<CommandSender, Stamp>, BlockingSuggestionProvider<CommandSender>, KoinComponent {
+class StampArgumentParser<CommandSender> :
+    ArgumentParser<CommandSender, Stamp>,
+    BlockingSuggestionProvider<CommandSender>,
+    KoinComponent {
     val plugin: MineStamp by inject()
     private val emojiProperties: Properties by inject()
     private val emojiFont: FluentEmojiFont by inject()
 
     // フォントで実際に描画できる絵文字のみをタブ補完に出す。初回参照時に一度だけ計算する
     private val renderableEmojiSuggestions: List<String> by lazy {
-        emojiProperties.stringPropertyNames()
+        emojiProperties
+            .stringPropertyNames()
             .filter { key -> emojiFont.hasGlyph(emojiProperties.getProperty(key) ?: "") }
             .map { key -> toEmojiChar(emojiProperties.getProperty(key)) + key }
     }
 
     companion object {
-        fun stampParser(): ParserDescriptor<CommandSender, Stamp> {
-            return ParserDescriptor.of(StampArgumentParser(), Stamp::class.java)
-        }
+        fun stampParser(): ParserDescriptor<CommandSender, Stamp> =
+            ParserDescriptor.of(StampArgumentParser(), Stamp::class.java)
 
         /**
          * emoji.properties の値 (スペース区切りの16進コードポイント) から実際の絵文字文字列を生成する。
@@ -45,7 +56,9 @@ class StampArgumentParser<CommandSender> : ArgumentParser<CommandSender, Stamp>,
         private fun toEmojiChar(codePoints: String?): String {
             if (codePoints.isNullOrBlank()) return ""
             return runCatching {
-                codePoints.trim().split(" ")
+                codePoints
+                    .trim()
+                    .split(" ")
                     .flatMap { Character.toChars(Integer.parseInt(it, 16)).toList() }
                     .joinToString("")
             }.getOrDefault("")
@@ -68,16 +81,17 @@ class StampArgumentParser<CommandSender> : ArgumentParser<CommandSender, Stamp>,
     ): Iterable<Suggestion> {
         val sender = context.sender() as org.bukkit.command.CommandSender
 
-        val candidates: List<String> = if (sender.hasPermission("minestamp.advanced")) {
-            val images = get<ImageListData>().list.map { "!$it" }
-            images + renderableEmojiSuggestions
-        } else if (sender is org.bukkit.entity.Player) {
-            get<AbstractPlayerStampManager>().getPlayerStamp(sender).map { stamp ->
-                if (stamp is EmojiStamp) stamp.char + stamp.shortCode else stamp.shortCode
+        val candidates: List<String> =
+            if (sender.hasPermission("minestamp.advanced")) {
+                val images = get<ImageListData>().list.map { "!$it" }
+                images + renderableEmojiSuggestions
+            } else if (sender is org.bukkit.entity.Player) {
+                get<AbstractPlayerStampManager>().getPlayerStamp(sender).map { stamp ->
+                    if (stamp is EmojiStamp) stamp.char + stamp.shortCode else stamp.shortCode
+                }
+            } else {
+                emptyList()
             }
-        } else {
-            emptyList()
-        }
 
         // cloud の既定フィルタは前方一致相当のため、名前の一部 ("sleeping" 等) でも
         // 候補が出るようにサーバー側で部分一致 (contains) フィルタを行う。
@@ -87,7 +101,6 @@ class StampArgumentParser<CommandSender> : ArgumentParser<CommandSender, Stamp>,
             .filter { query.isEmpty() || it.lowercase().contains(query) }
             .map { Suggestion.suggestion(it) }
     }
-
 
     override fun parse(
         commandContext: CommandContext<CommandSender & Any>,

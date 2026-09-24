@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -8,7 +17,9 @@ plugins {
     alias(libs.plugins.shadow)
     alias(libs.plugins.run.paper)
     alias(libs.plugins.resource.factory)
-
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.spotless)
+    alias(libs.plugins.detekt)
 }
 
 group = "dev.nikomaru"
@@ -23,6 +34,7 @@ repositories {
     maven("https://jitpack.io")
     maven("https://plugins.gradle.org/m2/")
     maven("https://repo.incendo.org/content/repositories/snapshots")
+    maven("https://central.sonatype.com/repository/maven-snapshots/")
 }
 
 dependencies {
@@ -49,7 +61,6 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
-
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(25))
 }
@@ -74,12 +85,18 @@ tasks {
         }
     }
     runServer {
-        minecraftVersion("1.21.4")
-        val plugins = runPaper.downloadPluginsSpec {
-            github("Test-Account666", "PlugManX", "2.4.1","PlugManX-2.4.1.jar")
-            url("https://ci.dmulloy2.net/job/ProtocolLib/lastSuccessfulBuild/artifact/build/libs/ProtocolLib.jar")
-            github("jpenilla","TabTPS", "v1.3.25","tabtps-spigot-1.3.25.jar")
-        }
+        // `-PmcVersion=1.21.11` のように起動するMinecraftバージョンを切り替えられるようにする
+        val mcVersion = providers.gradleProperty("mcVersion").getOrElse("26.2")
+        minecraftVersion(mcVersion)
+        // バージョンごとにワールド等が混ざらないよう実行ディレクトリを分ける
+        runDirectory.set(layout.projectDirectory.dir("run/$mcVersion"))
+        val plugins =
+            runPaper.downloadPluginsSpec {
+                github("Test-Account666", "PlugManX", "2.4.1", "PlugManX-2.4.1.jar")
+                // dmulloy2 の Jenkins は 403 を返すため GitHub の開発版リリースから取得する
+                github("dmulloy2", "ProtocolLib", "dev-build", "ProtocolLib.jar")
+                github("jpenilla", "TabTPS", "v1.3.25", "tabtps-spigot-1.3.25.jar")
+            }
         downloadPlugins {
             downloadPlugins.from(plugins)
         }
@@ -89,12 +106,11 @@ tasks {
     }
 }
 
-
 sourceSets.main {
     resourceFactory {
         bukkitPluginYaml {
             name = rootProject.name
-            version = "versionPlaceholder" //Don't change
+            version = "versionPlaceholder" // Don't change
             website = "https://github.com/Nlkomaru/AdvancedShopFinder"
             main = "$group.minestamp.MineStamp"
             apiVersion = "1.20"
@@ -104,8 +120,47 @@ sourceSets.main {
     }
 }
 
-fun Provider<ExternalModuleDependencyBundle>.asString(): List<String> {
-    return this.get().map { dependency ->
+fun Provider<ExternalModuleDependencyBundle>.asString(): List<String> =
+    this.get().map { dependency ->
         "${dependency.group}:${dependency.name}:${dependency.version}"
     }
+
+ktlint {
+    // 当面は非ゲート（`check`/`build` を失敗させない）。`./gradlew ktlintFormat` で整形する。
+    ignoreFailures.set(true)
+    filter {
+        exclude("**/generated/**")
+    }
+}
+
+spotless {
+    // ktlint / detekt と同様、当面は非ゲート（`check`/`build` を失敗させない）。
+    // 開発者が任意に `./gradlew spotlessApply`（一括付与・更新）/ `spotlessCheck`（検証）を
+    // 実行する運用とする。
+    isEnforceCheck = false
+
+    // ライセンスヘッダーは config/spotless/license-header.kt に一元管理し、$YEAR トークンで年を表す。
+    // updateYearWithLatest により、既存の年を「開始年-現在年」の範囲へ更新する
+    // （例: 2023 → 2023-2026）。新規ファイルは現在年のみ。
+    val licenseHeader = rootProject.file("config/spotless/license-header.kt")
+    kotlin {
+        target("src/**/*.kt")
+        licenseHeaderFile(licenseHeader).updateYearWithLatest(true)
+    }
+    kotlinGradle {
+        target("*.gradle.kts")
+        // .gradle.kts の最初の非ヘッダー行（build: import / settings: rootProject 等）を区切りとする。
+        licenseHeaderFile(
+            licenseHeader,
+            "(import|plugins|pluginManagement|dependencyResolutionManagement|rootProject|@file)"
+        ).updateYearWithLatest(true)
+    }
+}
+
+detekt {
+    source.setFrom("src/main/kotlin")
+    parallel = true
+    buildUponDefaultConfig = true
+    // ビルドを失敗させない（レポートのみ）
+    ignoreFailures = true
 }

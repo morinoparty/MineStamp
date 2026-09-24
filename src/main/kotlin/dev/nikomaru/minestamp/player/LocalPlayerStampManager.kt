@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.player
 
 import dev.nikomaru.minestamp.MineStamp
@@ -12,14 +21,18 @@ import org.koin.core.component.get
 import org.koin.core.component.inject
 import java.util.*
 
-class LocalPlayerStampManager: AbstractPlayerStampManager(),  KoinComponent {
+class LocalPlayerStampManager :
+    AbstractPlayerStampManager(),
+    KoinComponent {
     val plugin: MineStamp by inject()
+
     override fun init(player: Player) {
         val file = plugin.dataFolder.resolve("player").resolve("${player.uniqueId}.json")
         if (!file.exists()) {
-            val data = PlayerData(
-                emoji = listOf()
-            )
+            val data =
+                PlayerData(
+                    emoji = listOf()
+                )
             file.parentFile.mkdirs()
             file.writeText(json.encodeToString(data))
         }
@@ -37,50 +50,69 @@ class LocalPlayerStampManager: AbstractPlayerStampManager(),  KoinComponent {
         return (playerStamp + defaultStamp).toCollection(arrayListOf())
     }
 
-    override fun addStamp(player: Player, stamp: Stamp) {
+    override fun addStamp(
+        player: Player,
+        stamp: Stamp
+    ) {
         plugin.logger.info("addStamp: ${stamp.shortCode} to ${player.name}")
         val newCodes = (playerShortCodes[player.uniqueId] ?: emptyList()) + stamp.shortCode
         playerShortCodes[player.uniqueId] = newCodes
         playerEmoji[player.uniqueId] = (playerEmoji[player.uniqueId] ?: emptyList()) + stamp
         val file = plugin.dataFolder.resolve("player").resolve("${player.uniqueId}.json")
-        val data = PlayerData(
-            emoji = newCodes
-        )
+        val data =
+            PlayerData(
+                emoji = newCodes
+            )
         file.writeText(json.encodeToString(data))
     }
 
-    override fun removeStamp(player: Player, stamp: Stamp) {
+    override fun removeStamp(
+        player: Player,
+        stamp: Stamp
+    ) {
         plugin.logger.info("removeStamp: ${stamp.shortCode} from ${player.name}")
         val newCodes = (playerShortCodes[player.uniqueId] ?: emptyList()) - stamp.shortCode
         playerShortCodes[player.uniqueId] = newCodes
         playerEmoji[player.uniqueId] =
             (playerEmoji[player.uniqueId] ?: emptyList()).filterNot { it.shortCode == stamp.shortCode }
         val file = plugin.dataFolder.resolve("player").resolve("${player.uniqueId}.json")
-        val data = PlayerData(
-            emoji = newCodes
-        )
+        val data =
+            PlayerData(
+                emoji = newCodes
+            )
         file.writeText(json.encodeToString(data))
     }
 
-    override fun availableStamp(player: Player, stamp: Stamp): Boolean {
-        if(player.hasPermission("minestamp.stamp.all")) return true
+    override fun availableStamp(
+        player: Player,
+        stamp: Stamp
+    ): Boolean {
+        if (player.hasPermission("minestamp.stamp.all")) return true
         val default = get<PlayerDefaultEmojiConfigData>().defaultStamps
         val playerStamp = playerEmoji[player.uniqueId] ?: emptyList()
-        return (playerStamp + default).map{it.shortCode}.contains(stamp.shortCode)
+        return (playerStamp + default).map { it.shortCode }.contains(stamp.shortCode)
     }
 
     override fun loadAllPlayerData(): Map<UUID, List<String>> {
         val files = plugin.dataFolder.resolve("player").listFiles() ?: return emptyMap()
-        return files.filter { it.extension == "json" }.mapNotNull { file ->
-            val uuid = runCatching { UUID.fromString(file.nameWithoutExtension) }.getOrNull()
-                ?: return@mapNotNull null
-            uuid to json.decodeFromString(PlayerData.serializer(), file.readText()).emoji
-        }.toMap()
+        return files
+            .filter { it.extension == "json" }
+            .mapNotNull { file ->
+                val uuid =
+                    runCatching { UUID.fromString(file.nameWithoutExtension) }.getOrNull()
+                        ?: return@mapNotNull null
+                uuid to json.decodeFromString(PlayerData.serializer(), file.readText()).emoji
+            }.toMap()
     }
 
-    override fun savePlayerData(uuid: UUID, shortCodes: List<String>) {
+    override fun savePlayerData(
+        uuid: UUID,
+        shortCodes: List<String>
+    ) {
         val file = plugin.dataFolder.resolve("player").resolve("$uuid.json")
         file.writeText(json.encodeToString(PlayerData(emoji = shortCodes)))
-        org.bukkit.Bukkit.getPlayer(uuid)?.let { store(it, shortCodes, plugin.logger) }
+        org.bukkit.Bukkit
+            .getPlayer(uuid)
+            ?.let { store(it, shortCodes, plugin.logger) }
     }
 }

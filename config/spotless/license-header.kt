@@ -1,5 +1,5 @@
 /*
- * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ * Written in $YEAR by Nikomaru <nikomaru@nikomaru.dev>
  *
  * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
  *
@@ -7,18 +7,3 @@
  * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-package dev.nikomaru.minestamp.api.model
-
-import kotlinx.serialization.Serializable
-
-/**
- * スタンプの種別
- */
-@Serializable
-enum class StampType {
-    /** 絵文字スタンプ（shortCodeが`:`で始まる） */
-    EMOJI,
-
-    /** 画像スタンプ（shortCodeが`!`で始まる） */
-    IMAGE
-}

@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp
 
 import com.github.shynixn.mccoroutine.bukkit.SuspendingJavaPlugin
@@ -36,11 +45,15 @@ import org.koin.core.context.loadKoinModules
 import org.koin.dsl.module
 import java.util.*
 
-
-open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
+open class MineStamp :
+    SuspendingJavaPlugin(),
+    KoinComponent {
     lateinit var plugin: JavaPlugin
+
     override suspend fun onEnableAsync() {
-        logger.info("Is starting on Thread:${Thread.currentThread().name}/${Thread.currentThread().threadId()}/primaryThread=${Bukkit.isPrimaryThread()}")
+        logger.info(
+            "Is starting on Thread:${Thread.currentThread().name}/${Thread.currentThread().threadId()}/primaryThread=${Bukkit.isPrimaryThread()}"
+        )
         plugin = this
         setKoin()
 
@@ -50,23 +63,28 @@ open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
         // フォントロードは重いIOのため、コマンド登録と並行して実行する
         val emojiProperties = Properties()
         coroutineScope {
-            val emojiFontDeferred = async(Dispatchers.IO) {
-                val br = plugin.javaClass.classLoader.getResourceAsStream("emoji.properties")
-                emojiProperties.load(br)
-                val fontData = plugin.javaClass.classLoader.getResourceAsStream("FluentEmojiColor-CBDT.ttf")
-                    ?.use { it.readBytes() }
-                    ?: error("FluentEmojiColor-CBDT.ttf is not found in resources.")
-                FluentEmojiFont(fontData)
-            }
+            val emojiFontDeferred =
+                async(Dispatchers.IO) {
+                    val br = plugin.javaClass.classLoader.getResourceAsStream("emoji.properties")
+                    emojiProperties.load(br)
+                    val fontData =
+                        plugin.javaClass.classLoader
+                            .getResourceAsStream("FluentEmojiColor-CBDT.ttf")
+                            ?.use { it.readBytes() }
+                            ?: error("FluentEmojiColor-CBDT.ttf is not found in resources.")
+                    FluentEmojiFont(fontData)
+                }
             logger.info("command setting")
             setCommand()
 
             // sanitizeRandomConfig（loadConfig内）がフォントに依存するため、Koin登録を待ってから先へ進む
             val emojiFont = emojiFontDeferred.await()
-            loadKoinModules(module {
-                single { emojiProperties }
-                single { emojiFont }
-            })
+            loadKoinModules(
+                module {
+                    single { emojiProperties }
+                    single { emojiFont }
+                }
+            )
         }
         logger.info("config setting")
         Config.loadConfig()
@@ -78,9 +96,11 @@ open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
                 LocalPlayerStampManager()
             }
 
-        loadKoinModules(module {
-            single<AbstractPlayerStampManager> { stampManager }
-        })
+        loadKoinModules(
+            module {
+                single<AbstractPlayerStampManager> { stampManager }
+            }
+        )
         logger.info("listener setting")
         setListener()
         logger.info("mineauth setting")
@@ -88,9 +108,10 @@ open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
     }
 
     private fun setKoin() {
-        val appModule = module {
-            single<MineStamp> { this@MineStamp }
-        }
+        val appModule =
+            module {
+                single<MineStamp> { this@MineStamp }
+            }
 
         GlobalContext.getOrNull() ?: GlobalContext.startKoin {
             printLogger()
@@ -99,11 +120,11 @@ open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
     }
 
     private fun setCommand() {
-        val commandManager = LegacyPaperCommandManager.createNative(
-            this,
-            ExecutionCoordinator.simpleCoordinator()
-        )
-
+        val commandManager =
+            LegacyPaperCommandManager.createNative(
+                this,
+                ExecutionCoordinator.simpleCoordinator()
+            )
 
         commandManager.settings().set(ManagerSetting.ALLOW_UNSAFE_REGISTRATION, true)
 
@@ -114,10 +135,13 @@ open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
 
         with(annotationParser) {
             parse(
-                ColorEmojiCommand(), PublishTicketCommand(), ReloadCommand(), PlayerUtilCommand(), PurgeCommand()
+                ColorEmojiCommand(),
+                PublishTicketCommand(),
+                ReloadCommand(),
+                PlayerUtilCommand(),
+                PurgeCommand()
             )
         }
-
     }
 
     private fun setListener() {
@@ -135,5 +159,4 @@ open class MineStamp: SuspendingJavaPlugin(), KoinComponent {
             logger.info("MineAuth not found - HTTP endpoints disabled")
         }
     }
-
 }

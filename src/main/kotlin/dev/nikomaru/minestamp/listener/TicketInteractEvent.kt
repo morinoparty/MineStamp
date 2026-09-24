@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.listener
 
 import com.auth0.jwt.JWT
@@ -5,9 +14,9 @@ import com.auth0.jwt.algorithms.Algorithm
 import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.StampManager
-import dev.nikomaru.minestamp.utils.LangUtils.sendI18nRichMessage
 import dev.nikomaru.minestamp.ticket.RSAUtils
 import dev.nikomaru.minestamp.ticket.TicketUtils
+import dev.nikomaru.minestamp.utils.LangUtils.sendI18nRichMessage
 import kotlinx.coroutines.delay
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
@@ -20,8 +29,9 @@ import org.koin.core.component.get
 import org.koin.core.component.inject
 import java.util.*
 
-
-class TicketInteractEvent: Listener, KoinComponent {
+class TicketInteractEvent :
+    Listener,
+    KoinComponent {
     val plugin: MineStamp by inject()
 
     private var rejectInteract = hashMapOf<UUID, Boolean>()
@@ -50,22 +60,24 @@ class TicketInteractEvent: Listener, KoinComponent {
             "roulette" -> {
                 item.amount -= 1
                 event.hand?.let { player.inventory.setItem(it, item) }
-                val rsaKey = RSAUtils.getRSAKeyPair() ?: run {
-                    player.sendI18nRichMessage("minestamp.not-found-keypair-need-report-admin")
-                    return
-                }
+                val rsaKey =
+                    RSAUtils.getRSAKeyPair() ?: run {
+                        player.sendI18nRichMessage("minestamp.not-found-keypair-need-report-admin")
+                        return
+                    }
                 val algorithm = Algorithm.RSA256(rsaKey.second, rsaKey.first)
-                val randomTicket = TicketUtils.getRandomTicket(algorithm) ?: run {
-                    player.sendI18nRichMessage("minestamp.not-found-stamp-need-report-admin")
-                    return
-                }
+                val randomTicket =
+                    TicketUtils.getRandomTicket(algorithm) ?: run {
+                        player.sendI18nRichMessage("minestamp.not-found-stamp-need-report-admin")
+                        return
+                    }
                 player.inventory.addItem(randomTicket)
             }
             "unique" -> {
                 val playerStampManager = get<AbstractPlayerStampManager>()
                 val shortCode = JWT.decode(jwt).claims["shortCode"]?.asString() ?: return
                 val stamp = StampManager.getStamp(shortCode) ?: return
-                if(playerStampManager.availableStamp(player, stamp)) {
+                if (playerStampManager.availableStamp(player, stamp)) {
                     player.sendI18nRichMessage("minestamp.already-haven")
                     return
                 }

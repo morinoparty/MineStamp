@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.player
 
 import dev.nikomaru.minestamp.MineStamp
@@ -17,17 +26,20 @@ import org.koin.core.component.inject
 import software.amazon.awssdk.core.sync.RequestBody
 import java.util.UUID
 
+class S3PlayerStampManager :
+    AbstractPlayerStampManager(),
+    KoinComponent {
+    val plugin: MineStamp by inject()
 
-class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {
-    val plugin : MineStamp by inject()
     override fun init(player: Player) {
         val s3Client = getS3Client()
         val bucketName = get<LocalConfig>().s3Config!!.bucket
         val key = "player/${player.uniqueId}.json"
         if (!s3Client.objectExists(bucketName, key)) {
-            val data = PlayerData(
-                emoji = listOf()
-            )
+            val data =
+                PlayerData(
+                    emoji = listOf()
+                )
             s3Client.putObject(
                 { it.bucket(bucketName).key(key) },
                 RequestBody.fromString(json.encodeToString(data))
@@ -49,7 +61,10 @@ class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {
         return (playerStamp + defaultStamp).toCollection(arrayListOf())
     }
 
-    override fun addStamp(player: Player, stamp: Stamp) {
+    override fun addStamp(
+        player: Player,
+        stamp: Stamp
+    ) {
         plugin.logger.info("addStamp: ${stamp.shortCode} to ${player.name}")
         val newCodes = (playerShortCodes[player.uniqueId] ?: emptyList()) + stamp.shortCode
         playerShortCodes[player.uniqueId] = newCodes
@@ -57,16 +72,26 @@ class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {
         val s3Client = getS3Client()
         val bucketName = get<LocalConfig>().s3Config!!.bucket
         val key = "player/${player.uniqueId}.json"
-        val data = PlayerData(
-            emoji = newCodes
-        )
+        val data =
+            PlayerData(
+                emoji = newCodes
+            )
         s3Client.putObject(
-            { it.bucket(bucketName).key(key).contentType("application/json").cacheControl("max-age=0") },
+            {
+                it
+                    .bucket(bucketName)
+                    .key(key)
+                    .contentType("application/json")
+                    .cacheControl("max-age=0")
+            },
             RequestBody.fromString(json.encodeToString(data))
         )
     }
 
-    override fun removeStamp(player: Player, stamp: Stamp) {
+    override fun removeStamp(
+        player: Player,
+        stamp: Stamp
+    ) {
         plugin.logger.info("removeStamp: ${stamp.shortCode} from ${player.name}")
         val newCodes = (playerShortCodes[player.uniqueId] ?: emptyList()) - stamp.shortCode
         playerShortCodes[player.uniqueId] = newCodes
@@ -75,44 +100,58 @@ class S3PlayerStampManager: AbstractPlayerStampManager(), KoinComponent {
         val s3Client = getS3Client()
         val bucketName = get<LocalConfig>().s3Config!!.bucket
         val key = "player/${player.uniqueId}.json"
-        val data = PlayerData(
-            emoji = newCodes
-        )
+        val data =
+            PlayerData(
+                emoji = newCodes
+            )
         s3Client.putObject(
             { it.bucket(bucketName).key(key) },
             RequestBody.fromString(json.encodeToString(data))
         )
     }
 
-    override fun availableStamp(player: Player, stamp: Stamp): Boolean {
-        if(player.hasPermission("minestamp.stamp.all")) return true
+    override fun availableStamp(
+        player: Player,
+        stamp: Stamp
+    ): Boolean {
+        if (player.hasPermission("minestamp.stamp.all")) return true
         val default = get<PlayerDefaultEmojiConfigData>().defaultStamps
         val playerStamp = playerEmoji[player.uniqueId] ?: emptyList()
-        return (playerStamp + default).map{it.shortCode}.contains(stamp.shortCode)
+        return (playerStamp + default).map { it.shortCode }.contains(stamp.shortCode)
     }
 
     override fun loadAllPlayerData(): Map<UUID, List<String>> {
         val s3Client = getS3Client()
         val bucketName = get<LocalConfig>().s3Config!!.bucket
-        return s3Client.listObjectsV2Paginator { it.bucket(bucketName).prefix("player/") }
-            .contents().mapNotNull { obj ->
-                val uuid = runCatching {
-                    UUID.fromString(obj.key().removePrefix("player/").removeSuffix(".json"))
-                }.getOrNull() ?: return@mapNotNull null
-                val data = json.decodeFromString(
-                    PlayerData.serializer(), s3Client.getObjectAsString(bucketName, obj.key())
-                )
+        return s3Client
+            .listObjectsV2Paginator { it.bucket(bucketName).prefix("player/") }
+            .contents()
+            .mapNotNull { obj ->
+                val uuid =
+                    runCatching {
+                        UUID.fromString(obj.key().removePrefix("player/").removeSuffix(".json"))
+                    }.getOrNull() ?: return@mapNotNull null
+                val data =
+                    json.decodeFromString(
+                        PlayerData.serializer(),
+                        s3Client.getObjectAsString(bucketName, obj.key())
+                    )
                 uuid to data.emoji
             }.toMap()
     }
 
-    override fun savePlayerData(uuid: UUID, shortCodes: List<String>) {
+    override fun savePlayerData(
+        uuid: UUID,
+        shortCodes: List<String>
+    ) {
         val s3Client = getS3Client()
         val bucketName = get<LocalConfig>().s3Config!!.bucket
         s3Client.putObject(
             { it.bucket(bucketName).key("player/$uuid.json") },
             RequestBody.fromString(json.encodeToString(PlayerData(emoji = shortCodes)))
         )
-        org.bukkit.Bukkit.getPlayer(uuid)?.let { store(it, shortCodes, plugin.logger) }
+        org.bukkit.Bukkit
+            .getPlayer(uuid)
+            ?.let { store(it, shortCodes, plugin.logger) }
     }
 }

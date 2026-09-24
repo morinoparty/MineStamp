@@ -1,17 +1,18 @@
 [versions]
-paper = "26.2.build.84-stable"
-mccoroutine = "2.22.0"
-cloud = "2.1.0"
-cloudPaper = "2.1.0-SNAPSHOT"
+paper = "26.2.build.129-stable"
+mccoroutine = "2.23.0"
+cloud = "2.2.0-SNAPSHOT"
+cloudPaper = "2.0.1"
 koinVersion = "4.2.2"
 coroutine = "1.11.0"
 serialization = "1.11.0"
-awsSdkS3 = "2.46.7"
+awsSdkS3 = "2.55.4"
 commonsMath3 = "3.6.1"
 protocolLib = "5.4.0"
-javaJwt = "4.6.0"
-mineauthApi = "0.3.4"
-junit = "5.14.1"
+javaJwt = "4.6.1"
+mineauthApi = "0.3.12"
+junit = "6.1.3"
+ktlint = "14.2.0"
 
 [libraries]
 paper-api = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }
@@ -35,12 +36,15 @@ junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.r
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
 
 [plugins]
-run-paper = { id = "xyz.jpenilla.run-paper", version = "3.0.2" }
-resource-factory = { id = "xyz.jpenilla.resource-factory", version = "1.3.1" }
+run-paper = { id = "xyz.jpenilla.run-paper", version = "3.1.0" }
+resource-factory = { id = "xyz.jpenilla.resource-factory", version = "1.4.0" }
 shadow = { id = "com.gradleup.shadow", version = "9.6.1" }
-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version = "2.4.10" }
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version = "2.4.10" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version = "2.4.20" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version = "2.4.20" }
 dokka = { id = "org.jetbrains.dokka", version = "2.2.0" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
+spotless = { id = "com.diffplug.spotless", version = "8.10.2" }
+detekt = { id = "dev.detekt", version = "2.0.0-alpha.6" }
 
 [bundles]
 commands = ["cloud", "cloudPaper", "cloud-annotations", "cloud-kotlin-extensions", "cloud-kotlin-coroutines", "cloud-kotlin-coroutines-annotations"]

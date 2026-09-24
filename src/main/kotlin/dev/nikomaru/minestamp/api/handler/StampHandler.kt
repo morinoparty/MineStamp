@@ -1,11 +1,20 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.api.handler
 
 import dev.nikomaru.minestamp.api.model.AllStampsResponse
 import dev.nikomaru.minestamp.api.model.PlayerStampsResponse
 import dev.nikomaru.minestamp.api.model.StampData
 import dev.nikomaru.minestamp.api.model.StampType
-import dev.nikomaru.minestamp.data.ImageListData
 import dev.nikomaru.minestamp.config.PlayerDefaultEmojiConfigData
+import dev.nikomaru.minestamp.data.ImageListData
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.Stamp
 import org.koin.core.component.KoinComponent
@@ -24,7 +33,6 @@ import java.util.Properties
  * /api/v1/plugins/minestamp/ 配下にエンドポイントを提供する
  */
 class StampHandler : KoinComponent {
-
     /**
      * 認証済みプレイヤー自身の所持スタンプ一覧を取得する
      * GET /stamps
@@ -38,20 +46,24 @@ class StampHandler : KoinComponent {
      */
     @Get("/stamps")
     @Authenticated
-    suspend fun getOwnStamps(@Caller caller: Principal.User): PlayerStampsResponse {
+    suspend fun getOwnStamps(
+        @Caller caller: Principal.User
+    ): PlayerStampsResponse {
         val stampManager = get<AbstractPlayerStampManager>()
         val onlinePlayer = caller.onlinePlayer
 
-        val stamps: List<Stamp> = if (onlinePlayer != null) {
-            stampManager.getPlayerStamp(onlinePlayer)
-        } else {
-            // オフラインの場合はメモリ上のデータ（最終ログイン時にロード済み）から取得する
-            val stored = stampManager.playerEmoji[caller.uuid] ?: throw HttpError(
-                HttpStatus.NOT_FOUND,
-                "Stamp data is not loaded for this player. Join the server at least once after a restart."
-            )
-            stored + get<PlayerDefaultEmojiConfigData>().defaultStamps
-        }
+        val stamps: List<Stamp> =
+            if (onlinePlayer != null) {
+                stampManager.getPlayerStamp(onlinePlayer)
+            } else {
+                // オフラインの場合はメモリ上のデータ（最終ログイン時にロード済み）から取得する
+                val stored =
+                    stampManager.playerEmoji[caller.uuid] ?: throw HttpError(
+                        HttpStatus.NOT_FOUND,
+                        "Stamp data is not loaded for this player. Join the server at least once after a restart."
+                    )
+                stored + get<PlayerDefaultEmojiConfigData>().defaultStamps
+            }
 
         return PlayerStampsResponse(
             uuid = caller.uuid.toString(),
@@ -71,14 +83,16 @@ class StampHandler : KoinComponent {
     @Public(reason = "Stamp catalog contains no player data")
     suspend fun getAllStamps(): AllStampsResponse {
         val emojiProperties = get<Properties>()
-        val emojiStamps = emojiProperties.stringPropertyNames().map { shortCode ->
-            StampData(shortCode = shortCode, type = StampType.EMOJI)
-        }
+        val emojiStamps =
+            emojiProperties.stringPropertyNames().map { shortCode ->
+                StampData(shortCode = shortCode, type = StampType.EMOJI)
+            }
 
         // 画像一覧は非同期でロードされるため、未ロードの場合は空扱いにする
-        val imageStamps = getKoin().getOrNull<ImageListData>()?.list?.map { name ->
-            StampData(shortCode = "!$name", type = StampType.IMAGE)
-        } ?: emptyList()
+        val imageStamps =
+            getKoin().getOrNull<ImageListData>()?.list?.map { name ->
+                StampData(shortCode = "!$name", type = StampType.IMAGE)
+            } ?: emptyList()
 
         return AllStampsResponse(
             stamps = (emojiStamps + imageStamps).sortedBy { it.shortCode }

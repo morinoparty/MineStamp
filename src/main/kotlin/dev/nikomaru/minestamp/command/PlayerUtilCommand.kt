@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.command
 
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
@@ -6,14 +15,13 @@ import dev.nikomaru.minestamp.utils.LangUtils.sendI18nRichMessage
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.incendo.cloud.annotations.Argument
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.get
 import org.incendo.cloud.annotations.Command
 import org.incendo.cloud.annotations.Default
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 
 @Command("minestamp")
-class PlayerUtilCommand: KoinComponent {
-
+class PlayerUtilCommand : KoinComponent {
     @Command("help")
     fun help(actor: CommandSender) {
         actor.sendI18nRichMessage("minestamp.help.header")
@@ -42,23 +50,28 @@ class PlayerUtilCommand: KoinComponent {
         actor.sendI18nRichMessage("minestamp.help.url")
     }
 
-
     @Command("list [reset]")
-    fun showEmojiList(actor: Player , @Argument("reset") @Default("4") resetCount: Int) {
+    fun showEmojiList(
+        actor: Player,
+        @Argument("reset") @Default("4") resetCount: Int
+    ) {
         actor.sendI18nRichMessage("minestamp.current-emoji-list")
         val playerStampManager: AbstractPlayerStampManager = get<AbstractPlayerStampManager>()
         val list = playerStampManager.getPlayerStamp(actor)
         list.sortBy { it.shortCode }
         // クリックで /stamp コマンドを入力欄に補完できるようにする
-        val message = list.chunked(resetCount.coerceAtLeast(1)).joinToString("\n") { row ->
-            row.joinToString("<gray> | </gray>") { stamp ->
-                val label =
-                    if (stamp is EmojiStamp) "${stamp.char} <aqua>${stamp.shortCode}</aqua>"
-                    else "<aqua>${stamp.shortCode}</aqua>"
-                "<click:suggest_command:'/stamp ${stamp.shortCode}'><hover:show_text:'/stamp ${stamp.shortCode}'>$label</hover></click>"
+        val message =
+            list.chunked(resetCount.coerceAtLeast(1)).joinToString("\n") { row ->
+                row.joinToString("<gray> | </gray>") { stamp ->
+                    val label =
+                        if (stamp is EmojiStamp) {
+                            "${stamp.char} <aqua>${stamp.shortCode}</aqua>"
+                        } else {
+                            "<aqua>${stamp.shortCode}</aqua>"
+                        }
+                    "<click:suggest_command:'/stamp ${stamp.shortCode}'><hover:show_text:'/stamp ${stamp.shortCode}'>$label</hover></click>"
+                }
             }
-        }
         actor.sendRichMessage(message)
     }
-
 }

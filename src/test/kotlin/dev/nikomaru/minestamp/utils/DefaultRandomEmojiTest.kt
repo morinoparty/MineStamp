@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.utils
 
 import kotlinx.serialization.json.Json
@@ -11,14 +20,15 @@ import java.util.Properties
  * and renders to a non-empty image with the bundled Fluent Emoji font.
  */
 class DefaultRandomEmojiTest {
-
     private fun resource(name: String) =
         checkNotNull(javaClass.classLoader.getResourceAsStream(name)) { "$name not found on classpath" }
 
     @Test
     fun everyDefaultRandomEntryRendersWithFluentEmojiFont() {
-        val shortCodes = Json.parseToJsonElement(resource("default-random.json").use { it.readBytes().decodeToString() })
-            .jsonObject.keys
+        val shortCodes =
+            Json
+                .parseToJsonElement(resource("default-random.json").use { it.readBytes().decodeToString() })
+                .jsonObject.keys
 
         val emojiProperties = Properties().apply { resource("emoji.properties").use { load(it) } }
 
@@ -42,6 +52,9 @@ class DefaultRandomEmojiTest {
             }
         }
 
-        assertTrue(failures.isEmpty()) { "${failures.size} of ${shortCodes.size} entries failed to render:\n" + failures.joinToString("\n") }
+        assertTrue(failures.isEmpty()) {
+            "${failures.size} of ${shortCodes.size} entries failed to render:\n" +
+                failures.joinToString("\n")
+        }
     }
 }

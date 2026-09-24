@@ -1,0 +1,18 @@
+[
+  { "action": "wait_for_log", "source": "client", "pattern": "\\[CHAT\\] MineStampTest joined the game", "timeout": 300 },
+  { "action": "server_command", "command": "op MineStampTest" },
+  { "action": "server_command", "command": "time set noon" },
+  { "action": "server_command", "command": "weather clear" },
+  { "action": "server_command", "command": "tp MineStampTest 0.5 -60 0.5 0 15" },
+  { "action": "wait", "seconds": 10 },
+  { "action": "press_key", "key": "F5" },
+  { "action": "press_key", "key": "F5" },
+  { "action": "press_key", "key": "t" },
+  { "action": "wait", "seconds": 0.5 },
+  { "action": "type_text", "text": "/st :thinking-face:" },
+  { "action": "press_key", "key": "Return" },
+  { "action": "wait_for_log", "source": "server", "pattern": "MineStampTest issued server command: /st :thinking-face:", "timeout": 10 },
+  { "action": "wait", "seconds": 1 },
+  { "action": "screenshot", "name": "stamp-thinking-face" },
+  { "action": "assert_no_log", "source": "client", "pattern": "\\[CHAT\\].*(Unknown or incomplete command|Stamp not found|do not have that stamp|cannot summon)" }
+]

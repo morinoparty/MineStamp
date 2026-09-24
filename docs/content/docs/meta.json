@@ -1,4 +1,4 @@
 {
 	"title": "MineStamp",
-	"pages": ["index", "player", "admin"]
+	"pages": ["index", "player", "admin", "game-test"]
 }

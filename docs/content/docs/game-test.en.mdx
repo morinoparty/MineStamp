@@ -1,0 +1,66 @@
+---
+title: 🎮 In-game test
+description: A test that starts a real server and client, drives the client from a JSON scenario, and takes screenshots
+---
+
+## 🧭 Overview
+
+The in-game test starts a real Paper server and a real vanilla Minecraft client. It drives the client from a JSON scenario and saves screenshots of how stamps look.
+On GitHub Actions it runs for every pull request, and uploads the screenshots and logs as artifacts.
+
+It works like this:
+
+1. It picks a version from Mojang's version manifest and the Paper API. `latest` resolves to the newest release whose latest Paper build is `STABLE`.
+2. The `runGameTestServer` Gradle task starts a Paper server with MineStamp and ProtocolLib. The server runs in offline mode on a flat world, with RCON enabled.
+3. PortableMC starts the vanilla client, which joins the server with Quick Play. No Microsoft account is needed.
+4. The steps in the scenario run in order. Key presses go to the client window through `xdotool`.
+5. Screenshots are saved to `build/game-test/screenshots/` and logs to `build/game-test/logs/`.
+
+Stamps are drawn with particles, so the output is not the same pixel for pixel on every run. For this reason, screenshots are not compared with baseline images.
+
+## 📝 Writing scenarios
+
+A scenario is a JSON array of actions. Scenario files go in `game-test/scenarios/`.
+
+| Action | Fields | Description |
+| --- | --- | --- |
+| `press_key` | `key` | Press and release one key. Use an X11 keysym name, such as `F5`, `t` or `Return`. `Enter` and `Esc` also work. |
+| `type_text` | `text` | Type text, for example after opening chat. |
+| `wait` | `seconds` | Wait for the given number of seconds. |
+| `wait_for_log` | `pattern`, `source` (optional), `timeout` (optional) | Wait until a regex matches the `client` (default) or `server` log. The default timeout is 60 seconds. |
+| `assert_no_log` | `pattern`, `source` (optional) | Fail if a regex matches the log. |
+| `server_command` | `command` | Run a server console command through RCON. |
+| `screenshot` | `name` | Press F2 and save the screenshot as `<name>.png`. |
+
+Unknown actions and fields are rejected before the server starts, so typos are caught early.
+
+The following example presses F5 twice to switch to the front view, runs `/st :thinking-face:`, and takes a screenshot (shortened):
+
+```json
+[
+  { "action": "wait_for_log", "pattern": "\\[CHAT\\] MineStampTest joined the game", "timeout": 300 },
+  { "action": "server_command", "command": "op MineStampTest" },
+  { "action": "press_key", "key": "F5" },
+  { "action": "press_key", "key": "F5" },
+  { "action": "press_key", "key": "t" },
+  { "action": "type_text", "text": "/st :thinking-face:" },
+  { "action": "press_key", "key": "Return" },
+  { "action": "wait", "seconds": 1 },
+  { "action": "screenshot", "name": "stamp-thinking-face" }
+]
+```
+
+## 🚀 Running the test
+
+Run it on Linux with X11. You need Java 25, [uv](https://docs.astral.sh/uv/), `xvfb` and `xdotool`.
+
+```sh
+xvfb-run -a -s '-screen 0 1280x720x24' \
+  uv run game-test/scripts/run_game_test.py \
+    --scenario game-test/scenarios/stamp-thinking-face.json
+```
+
+Use `--minecraft-version` to choose a version, such as `1.21.11`. The default is `latest`.
+On GitHub Actions, you can pick a version and a scenario when you start the `Game test` workflow manually.
+
+Running the test starts the Minecraft server and client, and accepts the [Minecraft EULA](https://www.minecraft.net/eula). Server and client files are never uploaded as artifacts.

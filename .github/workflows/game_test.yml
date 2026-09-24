@@ -1,0 +1,75 @@
+name: Game test
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      minecraft-version:
+        description: "Minecraft version (latest = newest release with a stable Paper build)"
+        default: latest
+      scenario:
+        description: "Scenario file under game-test/scenarios"
+        default: stamp-thinking-face.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  game-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      # GPU の無いランナーで Mesa のソフトウェアレンダリングを使う
+      LIBGL_ALWAYS_SOFTWARE: "true"
+      MINECRAFT_VERSION: ${{ inputs.minecraft-version || 'latest' }}
+      SCENARIO: ${{ inputs.scenario || 'stamp-thinking-face.json' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Install the virtual display and client dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            xvfb xauth xdotool \
+            libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 libopenal1 \
+            libxrandr2 libxinerama1 libxcursor1 libxi6
+
+      - name: Test the scenario tooling
+        run: uv run --no-project python -B -m unittest discover -s game-test/scripts -p 'test_*.py' -v
+
+      - name: Run the in-game scenario
+        run: |
+          chmod +x ./gradlew
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            uv run game-test/scripts/run_game_test.py \
+              --minecraft-version "$MINECRAFT_VERSION" \
+              --scenario "game-test/scenarios/$SCENARIO"
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: game-test
+          # Minecraft のクライアント・サーバー本体やアセットは再配布しない
+          path: |
+            build/game-test/screenshots/*.png
+            build/game-test/logs/*.log
+            build/game-test/server/logs/latest.log
+            build/game-test/client/logs/latest.log
+            build/game-test/client/crash-reports/*.txt
+          if-no-files-found: warn
+          retention-days: 14

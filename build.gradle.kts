@@ -117,20 +117,6 @@ tasks {
             downloadPlugins.from(plugins)
         }
     }
-    // ゲーム内スクリーンショットテスト（game-test/scripts/run_game_test.py）から起動するサーバー。
-    // 手元の run/ のワールドを汚さないよう build/ 配下で動かし、設定はスクリプト側が書き出す
-    register<xyz.jpenilla.runpaper.task.RunServer>("runGameTestServer") {
-        group = "verification"
-        description = "Runs the Paper server used by the in-game screenshot test."
-        minecraftVersion(providers.gradleProperty("mcVersion").getOrElse("26.2"))
-        runDirectory.set(layout.buildDirectory.dir("game-test/server"))
-        // 自動検出は runServer にしか効かないため、プラグインJARを明示的に渡す
-        pluginJars(shadowJar.flatMap { it.archiveFile })
-        downloadPlugins {
-            // スタンプの描画に ProtocolLib を使うため必須
-            github("dmulloy2", "ProtocolLib", "dev-build", "ProtocolLib.jar")
-        }
-    }
     withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
     }

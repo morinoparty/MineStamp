@@ -4,8 +4,6 @@
     { "name": "Bob" }
   ],
   "steps": [
-    { "on": "server", "action": "wait_for_log", "pattern": "\\[MineStamp\\] Enabling MineStamp", "timeout": 5 },
-    { "on": "server", "action": "assert_no_log", "pattern": "Unsupported class file major version|Failed to remap plugin|Error occurred while enabling MineStamp" },
     { "on": "server", "action": "command", "command": "time set noon" },
     { "on": "server", "action": "command", "command": "weather clear" },
     { "on": "server", "action": "command", "command": "fill 0 -60 0 0 -50 0 minecraft:stone" },

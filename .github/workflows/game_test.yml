@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       minecraft-versions:
-        description: 'Versions: "latest", "1.21.11", "1.20.5-" or "1.20.5-1.21.11"'
+        description: 'Versions: "latest", "1.21.11", "1.21.6-" or "1.21.6-1.21.11"'
         default: "1.21.6-"
       scenario:
         description: "Scenario file under game-test/scenarios"
@@ -19,48 +19,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # テストするバージョンの一覧を fukurou から受け取り、test ジョブの matrix にする
   versions:
     runs-on: ubuntu-24.04
     outputs:
-      matrix: ${{ steps.resolve.outputs.matrix }}
-    env:
-      MINECRAFT_VERSIONS: ${{ inputs.minecraft-versions || '1.21.6-' }}
+      matrix: ${{ steps.versions.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v7
+      - id: versions
+        uses: morinoparty/fukurou/versions@a4a1d3652cbd9e6fa66b08f71ab0b1a2579161ce
         with:
-          persist-credentials: false
+          # MineStamp は Java 25 のバイトコードのため、Paper 1.21.4 以前では読み込めない
+          minecraft-version: ${{ inputs.minecraft-versions || '1.21.6-' }}
 
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-
-      - name: Test the scenario tooling
-        run: uv run --project game-test python -B -m unittest discover -s game-test/scripts -p 'test_*.py' -v
-
-      - name: Resolve versions from the Mojang manifest and the Paper API
-        id: resolve
-        run: |
-          matrix="$(uv run --project game-test game-test/scripts/versions.py "$MINECRAFT_VERSIONS")"
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-          echo "Minecraft versions: $matrix" >> "$GITHUB_STEP_SUMMARY"
-
-  game-test:
-    name: Minecraft ${{ matrix.minecraft-version }}
-    needs: versions
+  # テスト対象のプラグインを1回だけビルドし、各バージョンのジョブで使い回す
+  build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      max-parallel: 8
-      matrix:
-        minecraft-version: ${{ fromJSON(needs.versions.outputs.matrix) }}
-    env:
-      # GPU の無いランナーで Mesa のソフトウェアレンダリングを使う
-      LIBGL_ALWAYS_SOFTWARE: "true"
-      MINECRAFT_VERSION: ${{ matrix.minecraft-version }}
-      SCENARIO: ${{ inputs.scenario || 'stamp-thinking-face.json' }}
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+
+      - id: sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v6
         with:
@@ -68,35 +50,106 @@ jobs:
           java-version: "25"
           cache: gradle
 
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-
-      - name: Install the virtual display and client dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y \
-            xvfb xdotool \
-            libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 libopenal1 \
-            libxrandr2 libxinerama1 libxcursor1 libxi6
-
-      - name: Run the in-game scenario
-        run: |
+      - run: |
           chmod +x ./gradlew
-          # プレイヤーごとの Xvfb はスクリプトが起動する
-          uv run --project game-test game-test/scripts/run_game_test.py \
-            --minecraft-version "$MINECRAFT_VERSION" \
-            --scenario "game-test/scenarios/$SCENARIO"
+          ./gradlew shadowJar --no-daemon --console=plain
 
-      - name: Upload screenshots and logs
-        if: always()
-        uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7
         with:
-          name: game-test-${{ matrix.minecraft-version }}
-          # Minecraft のクライアント・サーバー本体やアセットは再配布しない
-          path: |
-            build/game-test/screenshots/**/*.png
-            build/game-test/logs/*.log
-            build/game-test/server/logs/latest.log
-            build/game-test/clients/*/logs/latest.log
-            build/game-test/clients/*/crash-reports/*.txt
-          if-no-files-found: warn
-          retention-days: 14
+          name: plugin
+          path: build/libs/*-all.jar
+          if-no-files-found: error
+          retention-days: 3
+
+  test:
+    name: Minecraft ${{ matrix.minecraft-version }}
+    needs: [versions, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        minecraft-version: ${{ fromJSON(needs.versions.outputs.matrix) }}
+    steps:
+      # シナリオファイルを読むためにチェックアウトする
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: plugin
+          path: ${{ runner.temp }}/plugins
+
+      - uses: morinoparty/fukurou@a4a1d3652cbd9e6fa66b08f71ab0b1a2579161ce
+        with:
+          accept-eula: true
+          minecraft-version: ${{ matrix.minecraft-version }}
+          plugins-dir: ${{ runner.temp }}/plugins
+          plugins: "*-all.jar"
+          # スタンプの描画に ProtocolLib を使う
+          dependencies: |
+            - github: dmulloy2/ProtocolLib
+              tag: dev-build
+              asset: ProtocolLib.jar
+          scenario-file: game-test/scenarios/${{ inputs.scenario || 'stamp-thinking-face.json' }}
+
+  # 各バージョンの結果をまとめたビューアを作り、S3 に公開する
+  deploy:
+    needs: [build, test]
+    # 一部のバージョンが失敗しても、失敗時のスクリーンショットを見られるようにする
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-24.04
+    outputs:
+      fukurou_url: ${{ steps.ui.outputs.url }}
+    steps:
+      # fork からの PR には secret が渡らないため取得しない（fukurou/ui はアップロードを飛ばす）
+      - name: Get S3 credentials from Bitwarden
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: bitwarden/sm-action@v2
+        with:
+          access_token: ${{ secrets.NIKOMARU_BITWARDEN_SECRET_MANAGER_ACCESS_TOKEN }}
+          secrets: |
+            37e4d53a-a898-4e9f-b067-b49900deaf4f > AWS_ACCESS_KEY_ID
+            4d92b739-40fc-467f-97fa-b49900deb52c > AWS_SECRET_ACCESS_KEY
+
+      - id: ui
+        uses: morinoparty/fukurou/ui@a4a1d3652cbd9e6fa66b08f71ab0b1a2579161ce
+        with:
+          title: MineStamp ${{ needs.build.outputs.sha }}
+          upload: auto
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          s3-endpoint: ${{ secrets.S3_ENDPOINT }}
+          s3-bucket: ${{ secrets.S3_UPLOAD_BUCKET }}
+          # preview.yml と同じ minestamp/<sha>/ の下に置く
+          s3-prefix: minestamp/${{ needs.build.outputs.sha }}/game-test
+          public-base-url: https://moripa-ci.nikomaru.dev
+
+  # PR にビューアへのリンクをコメントする
+  preview:
+    needs: [test, deploy]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.deploy.outputs.fukurou_url != '' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: write
+    steps:
+      # preview.yml も同じ bot でコメントするため、目印の HTML コメントで自分のコメントを探して更新する
+      - name: Upsert the game-test comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          FUKUROU_URL: ${{ needs.deploy.outputs.fukurou_url }}
+          RESULT: ${{ needs.test.result }}
+        run: |
+          body="<!-- fukurou:game-test -->
+          ### 🦉 In-game screenshots (${RESULT})
+          ${FUKUROU_URL}"
+          id="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" \
+            --jq '.[] | select(.body | startswith("<!-- fukurou:game-test -->")) | .id' | tail -n 1)"
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" -f body="$body"
+          else
+            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "$body"
+          fi

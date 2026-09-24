@@ -1,63 +1,95 @@
 ---
 title: 🎮 In-game test
-description: A test that starts a real server and client, drives the client from a JSON scenario, and takes screenshots
+description: A test that starts a real server and clients, drives them from a JSON scenario, and takes screenshots
 ---
 
 ## 🧭 Overview
 
-The in-game test starts a real Paper server and a real vanilla Minecraft client. It drives the client from a JSON scenario and saves screenshots of how stamps look.
+The in-game test starts a real Paper server and a vanilla Minecraft client for each player. It drives the clients from a JSON scenario and saves screenshots of how stamps look.
 On GitHub Actions it runs for every pull request, and uploads the screenshots and logs as artifacts.
 
 It works like this:
 
 1. It picks versions from Mojang's version manifest and the Paper API. `latest` resolves to the newest release whose latest Paper build is `STABLE`. A range such as `1.20-` resolves to every release from 1.20 onward that has a `STABLE` Paper build, and CI runs each version as its own matrix job.
 2. The `runGameTestServer` Gradle task starts a Paper server with MineStamp and ProtocolLib. The server runs in offline mode on a flat world, with RCON enabled.
-3. PortableMC installs the vanilla client and Mojang's Java runtime for that version, then starts the client. The client joins the server with Quick Play. No Microsoft account is needed.
-4. The steps in the scenario run in order. Key presses go to the client window through `xdotool`.
-5. Screenshots are saved to `build/game-test/screenshots/` and logs to `build/game-test/logs/`.
+3. Each player gets its own virtual display (Xvfb). PortableMC installs the vanilla client and Mojang's Java runtime for that version, then starts the client. Players join one at a time with Quick Play, and players marked `op` are made operators after joining. No Microsoft account is needed.
+4. The steps in the scenario run in order. Each step targets the server, one player, or neither.
+5. Screenshots are saved to `build/game-test/screenshots/<player>/` and logs to `build/game-test/logs/`.
 
 Stamps are drawn with particles, so the output is not the same pixel for pixel on every run. For this reason, screenshots are not compared with baseline images.
 
 ## 📝 Writing scenarios
 
-A scenario is a JSON array of actions. Scenario files go in `game-test/scenarios/`. Each action is a pydantic model in `game-test/scripts/scenario.py`, and the value of `action` selects which model validates it.
+A scenario lists the `players` who join and the `steps` to run. Scenario files go in `game-test/scenarios/`.
+The `on` field of each step selects its target:
+
+- `"on": "server"` runs a server action.
+- `"on": "<player name>"` runs a player action on that player's client. The player must be listed in `players`.
+- No `on` runs a common action.
+
+Each group of actions is a set of pydantic models in `game-test/scripts/scenario/`, and the value of `action` selects which model validates a step. An action sent to the wrong target, an unknown field, or an undeclared player is rejected before the server starts.
+
+`players` entries:
+
+| Field | Description |
+| --- | --- |
+| `name` | Offline player name (3–16 letters, digits or `_`). `server` is reserved. |
+| `op` | Optional. If `true`, the player is made an operator after joining. |
+
+Server actions (`"on": "server"`):
+
+| Action | Fields | Description |
+| --- | --- | --- |
+| `command` | `command` | Run a console command through RCON. |
+| `wait_for_log` | `pattern`, `timeout` (optional) | Wait until a regex matches the server log. The default timeout is 60 seconds. |
+| `assert_no_log` | `pattern` | Fail if a regex matches the server log. |
+
+Player actions (`"on": "<player name>"`):
 
 | Action | Fields | Description |
 | --- | --- | --- |
 | `press_key` | `key` | Press and release one key. Use an X11 keysym name, such as `F5`, `t` or `Return`. `Enter` and `Esc` also work. |
-| `type_text` | `text` | Type text, for example after opening chat. |
+| `type_text` | `text` | Type text. |
+| `chat` | `text` | Open chat with T, type the text, and press Enter. Works for commands too. |
+| `wait_for_log` | `pattern`, `timeout` (optional) | Wait until a regex matches the client log. Chat lines appear there with `[CHAT]`. |
+| `assert_no_log` | `pattern` | Fail if a regex matches the client log. |
+| `screenshot` | `name` | Press F2 and save the screenshot as `<player>/<name>.png`. |
+
+Common actions (no `on`):
+
+| Action | Fields | Description |
+| --- | --- | --- |
 | `wait` | `seconds` | Wait for the given number of seconds. |
-| `wait_for_log` | `pattern`, `source` (optional), `timeout` (optional) | Wait until a regex matches the `client` (default) or `server` log. The default timeout is 60 seconds. |
-| `assert_no_log` | `pattern`, `source` (optional) | Fail if a regex matches the log. |
-| `server_command` | `command` | Run a server console command through RCON. |
-| `screenshot` | `name` | Press F2 and save the screenshot as `<name>.png`. |
 
-Unknown actions and fields are rejected before the server starts, so typos are caught early.
-
-The following example presses F5 twice to switch to the front view, runs `/st :thinking-face:`, and takes a screenshot (shortened):
+In the following example, Alice presses F5 twice to switch to the front view and runs `/st :thinking-face:`. Screenshots are taken from Alice's view and from Bob's, who stands across from her (shortened):
 
 ```json
-[
-  { "action": "wait_for_log", "pattern": "\\[CHAT\\] MineStampTest joined the game", "timeout": 300 },
-  { "action": "server_command", "command": "op MineStampTest" },
-  { "action": "press_key", "key": "F5" },
-  { "action": "press_key", "key": "F5" },
-  { "action": "press_key", "key": "t" },
-  { "action": "type_text", "text": "/st :thinking-face:" },
-  { "action": "press_key", "key": "Return" },
-  { "action": "wait", "seconds": 1 },
-  { "action": "screenshot", "name": "stamp-thinking-face" }
-]
+{
+  "players": [
+    { "name": "Alice", "op": true },
+    { "name": "Bob" }
+  ],
+  "steps": [
+    { "on": "server", "action": "command", "command": "tp Alice 0.5 -49 0.5 0 30" },
+    { "on": "server", "action": "command", "command": "tp Bob 0.5 -49 8.5 180 -15" },
+    { "action": "wait", "seconds": 10 },
+    { "on": "Alice", "action": "press_key", "key": "F5" },
+    { "on": "Alice", "action": "press_key", "key": "F5" },
+    { "on": "Alice", "action": "chat", "text": "/st :thinking-face:" },
+    { "action": "wait", "seconds": 1 },
+    { "on": "Alice", "action": "screenshot", "name": "stamp-thinking-face" },
+    { "on": "Bob", "action": "screenshot", "name": "stamp-thinking-face" }
+  ]
+}
 ```
 
 ## 🚀 Running the test
 
-Run it on Linux with X11. You need Java 25, [uv](https://docs.astral.sh/uv/), `xvfb` and `xdotool`.
+Run it on Linux. You need Java 25, [uv](https://docs.astral.sh/uv/), `xvfb` and `xdotool`. The script starts its own virtual displays, so `xvfb-run` is not needed.
 
 ```sh
-xvfb-run -a -s '-screen 0 1280x720x24' \
-  uv run --project game-test game-test/scripts/run_game_test.py \
-    --scenario game-test/scenarios/stamp-thinking-face.json
+uv run --project game-test game-test/scripts/run_game_test.py \
+  --scenario game-test/scenarios/stamp-thinking-face.json
 ```
 
 Use `--minecraft-version` to choose a version, such as `1.21.11`. The default is `latest`.
@@ -70,4 +102,4 @@ uv run --project game-test game-test/scripts/versions.py 1.20-
 The test needs Minecraft 1.20 or later, because it joins with Quick Play and assumes the 1.18+ world height.
 On GitHub Actions, it runs for each version in `1.21.6-` on every pull request. MineStamp is compiled to Java 25 bytecode, and Paper 1.21.4 and earlier cannot load it (`Unsupported class file major version 69`), so older versions are not in the default range. When you start the `Game test` workflow manually, you can pick a version range and a scenario.
 
-Running the test starts the Minecraft server and client, and accepts the [Minecraft EULA](https://www.minecraft.net/eula). Server and client files are never uploaded as artifacts.
+Running the test starts the Minecraft server and clients, and accepts the [Minecraft EULA](https://www.minecraft.net/eula). Server and client files are never uploaded as artifacts.

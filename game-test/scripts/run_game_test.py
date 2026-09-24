@@ -141,6 +141,9 @@ def join(server: ServerProcess, session: PlayerSession, spec: PlayerSpec, timeou
 def capture_failure_screenshots(runner: ScenarioRunner) -> None:
     """失敗時の各プレイヤーの画面を残す。ウィンドウが無い等で撮れなければ諦める。"""
     for session in runner.players.values():
+        # 参加前に失敗した場合など、まだディスプレイが無いプレイヤーは撮れない
+        if session.display.name is None:
+            continue
         # ここでは長時間ウィンドウを待たないようにする
         session.window_timeout = 10.0
         try:

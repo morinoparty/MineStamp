@@ -37,25 +37,25 @@ class ParseScenarioTest(unittest.TestCase):
         self.assertEqual(
             actions,
             [
-                PressKey("Return"),
+                PressKey(key="Return"),
                 WaitForLog(pattern="joined", source="client", timeout=60.0),
-                ServerCommand("time set noon"),
-                Screenshot("stamp"),
+                ServerCommand(command="time set noon"),
+                Screenshot(name="stamp"),
             ],
         )
 
     def test_rejects_unknown_action_and_typo_fields(self):
-        with self.assertRaisesRegex(ScenarioError, "unknown action"):
+        with self.assertRaisesRegex(ScenarioError, "does not match any of the expected tags"):
             parse_scenario([{"action": "press_kets", "key": "t"}])
-        with self.assertRaisesRegex(ScenarioError, "unknown field"):
+        with self.assertRaisesRegex(ScenarioError, "Extra inputs are not permitted"):
             parse_scenario([{"action": "press_key", "key": "t", "key_inturrupt": "t"}])
 
     def test_rejects_invalid_values(self):
-        with self.assertRaisesRegex(ScenarioError, "positive number"):
+        with self.assertRaisesRegex(ScenarioError, "greater than 0"):
             parse_scenario([{"action": "wait", "seconds": 0}])
-        with self.assertRaisesRegex(ScenarioError, "regular expression"):
+        with self.assertRaisesRegex(ScenarioError, "invalid regular expression"):
             parse_scenario([{"action": "wait_for_log", "pattern": "("}])
-        with self.assertRaisesRegex(ScenarioError, "screenshot name"):
+        with self.assertRaisesRegex(ScenarioError, "should match pattern"):
             parse_scenario([{"action": "screenshot", "name": "../escape"}])
         with self.assertRaisesRegex(ScenarioError, "duplicate"):
             parse_scenario([{"action": "screenshot", "name": "a"}, {"action": "screenshot", "name": "a"}])

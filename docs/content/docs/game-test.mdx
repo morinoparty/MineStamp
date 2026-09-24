@@ -10,9 +10,9 @@ GitHub Actions ではプルリクエストごとに実行され、スクリー�
 
 処理の流れは次のとおりです。
 
-1. Mojang のバージョンマニフェストと Paper の API から、テストするバージョンを決めます。`latest` を指定すると、Paper の最新ビルドが `STABLE` である最新リリースが選ばれます。
+1. Mojang のバージョンマニフェストと Paper の API から、テストするバージョンを決めます。`latest` を指定すると、Paper の最新ビルドが `STABLE` である最新リリースが選ばれます。`1.20-` のように範囲を指定すると、1.20 以降で Paper の `STABLE` ビルドがある全リリースが対象になり、CI ではバージョンごとに matrix のジョブとして実行されます。
 2. Gradle の `runGameTestServer` タスクで、MineStamp と ProtocolLib を導入した Paper サーバーを起動します。サーバーはオフラインモードのフラットワールドで、RCON を有効にしています。
-3. PortableMC でバニラクライアントを起動し、Quick Play でサーバーに参加させます。Microsoft アカウントは不要です。
+3. PortableMC で、バニラクライアントとそのバージョン用の Mojang 公式 Java ランタイムを用意して起動し、Quick Play でサーバーに参加させます。Microsoft アカウントは不要です。
 4. シナリオの各ステップを順に実行します。キー入力は `xdotool` でクライアントのウィンドウに送ります。
 5. スクリーンショットは `build/game-test/screenshots/` に、ログは `build/game-test/logs/` に保存されます。
 
@@ -20,7 +20,7 @@ GitHub Actions ではプルリクエストごとに実行され、スクリー�
 
 ## 📝 シナリオの書き方
 
-シナリオは、アクションを並べた JSON 配列です。ファイルは `game-test/scenarios/` に置きます。
+シナリオは、アクションを並べた JSON 配列です。ファイルは `game-test/scenarios/` に置きます。各アクションは `game-test/scripts/scenario.py` で pydantic のモデルとして定義されており、`action` の値でどのモデルとして検証するかが決まります。
 
 | アクション | フィールド | 説明 |
 | --- | --- | --- |
@@ -56,11 +56,18 @@ Linux（X11）で実行します。Java 25、[uv](https://docs.astral.sh/uv/)、
 
 ```sh
 xvfb-run -a -s '-screen 0 1280x720x24' \
-  uv run game-test/scripts/run_game_test.py \
+  uv run --project game-test game-test/scripts/run_game_test.py \
     --scenario game-test/scenarios/stamp-thinking-face.json
 ```
 
 `--minecraft-version` でバージョン（例: `1.21.11`）を指定できます。既定値は `latest` です。
-GitHub Actions では、`Game test` ワークフローを手動で実行するときにバージョンとシナリオを選べます。
+バージョンの範囲がどのバージョンに展開されるかは、次のコマンドで確認できます。
+
+```sh
+uv run --project game-test game-test/scripts/versions.py 1.20-
+```
+
+Quick Play での参加と 1.18 以降のワールドの高さを前提にしているため、対象は Minecraft 1.20 以降です。
+GitHub Actions では、プルリクエストごとに `1.20-` の各バージョンで実行されます。`Game test` ワークフローを手動で実行するときは、バージョンの範囲とシナリオを選べます。
 
 テストを実行すると Minecraft のサーバーとクライアントを起動するため、[Minecraft EULA](https://www.minecraft.net/eula) に同意したことになります。サーバーやクライアントのファイルは成果物としてアップロードしません。

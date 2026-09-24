@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12"
-# dependencies = []
-# ///
+#!/usr/bin/env python3
 #
 # Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
 #
@@ -14,12 +10,11 @@
 """Paper サーバーとバニラクライアントを起動し、JSON シナリオどおりに操作するゲーム内テスト。
 
 xvfb-run の中で実行する想定:
-    xvfb-run -a -s '-screen 0 1280x720x24' uv run game-test/scripts/run_game_test.py \
+    xvfb-run -a -s '-screen 0 1280x720x24' uv run --project game-test game-test/scripts/run_game_test.py \
         --scenario game-test/scenarios/stamp-thinking-face.json
 """
 
 import argparse
-import os
 from pathlib import Path
 import shutil
 import sys
@@ -43,21 +38,15 @@ def parse_args(argv=None) -> argparse.Namespace:
     )
     parser.add_argument("--username", default="MineStampTest", help="オフラインで参加するプレイヤー名")
     parser.add_argument("--work-dir", type=Path, default=PROJECT_DIR / "build" / "game-test")
-    parser.add_argument("--java", type=Path, default=None, help="クライアントを起動する java（既定は JAVA_HOME）")
+    parser.add_argument(
+        "--java",
+        type=Path,
+        default=None,
+        help="クライアントを起動する java（既定は PortableMC がバージョンに合った公式ランタイムを用意する）",
+    )
     parser.add_argument("--server-timeout", type=float, default=900.0, help="ビルドを含むサーバー起動の待ち時間（秒）")
     parser.add_argument("--client-timeout", type=float, default=900.0, help="クライアントのダウンロード待ち時間（秒）")
     return parser.parse_args(argv)
-
-
-def default_java() -> Path:
-    """JAVA_HOME があればその java を、無ければ PATH 上の java を使う。"""
-    java_home = os.environ.get("JAVA_HOME")
-    if java_home:
-        return Path(java_home) / "bin" / "java"
-    found = shutil.which("java")
-    if found is None:
-        raise GameProcessError("java was not found; set JAVA_HOME or pass --java")
-    return Path(found)
 
 
 def main(argv=None) -> int:
@@ -95,7 +84,7 @@ def main(argv=None) -> int:
         log_path=logs_dir / "client.log",
         minecraft_version=minecraft_version,
         username=args.username,
-        java=args.java or default_java(),
+        java=args.java,
     )
     runner = ScenarioRunner(server, client, work_dir / "screenshots", window_timeout=args.client_timeout)
 

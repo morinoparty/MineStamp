@@ -199,7 +199,7 @@ class ClientProcess:
         log_path: Path,
         minecraft_version: str,
         username: str,
-        java: Path,
+        java: Path | None,
     ):
         self.tools_dir = tools_dir
         self.cache_dir = cache_dir
@@ -260,14 +260,12 @@ class ClientProcess:
             self.minecraft_version,
             "--mc-dir",
             str(self.client_dir),
-            "--jvm",
-            str(self.java),
             "--jvm-arg=-Xms512M,-Xmx2G",
             "--resolution",
             "1280x720",
             "--username",
             self.username,
-        ]
+        ] + (["--jvm", str(self.java)] if self.java else [])
 
 
 def ensure_portablemc(tools_dir: Path) -> Path:

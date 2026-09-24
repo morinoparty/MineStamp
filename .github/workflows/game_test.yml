@@ -4,9 +4,9 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
-      minecraft-version:
-        description: "Minecraft version (latest = newest release with a stable Paper build)"
-        default: latest
+      minecraft-versions:
+        description: 'Versions: "latest", "1.21.11", "1.20.5-" or "1.20.5-1.21.11"'
+        default: "1.20-"
       scenario:
         description: "Scenario file under game-test/scenarios"
         default: stamp-thinking-face.json
@@ -19,13 +19,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  versions:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.resolve.outputs.matrix }}
+    env:
+      MINECRAFT_VERSIONS: ${{ inputs.minecraft-versions || '1.20-' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Test the scenario tooling
+        run: uv run --project game-test python -B -m unittest discover -s game-test/scripts -p 'test_*.py' -v
+
+      - name: Resolve versions from the Mojang manifest and the Paper API
+        id: resolve
+        run: |
+          matrix="$(uv run --project game-test game-test/scripts/versions.py "$MINECRAFT_VERSIONS")"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "Minecraft versions: $matrix" >> "$GITHUB_STEP_SUMMARY"
+
   game-test:
+    name: Minecraft ${{ matrix.minecraft-version }}
+    needs: versions
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        minecraft-version: ${{ fromJSON(needs.versions.outputs.matrix) }}
     env:
       # GPU の無いランナーで Mesa のソフトウェアレンダリングを使う
       LIBGL_ALWAYS_SOFTWARE: "true"
-      MINECRAFT_VERSION: ${{ inputs.minecraft-version || 'latest' }}
+      MINECRAFT_VERSION: ${{ matrix.minecraft-version }}
       SCENARIO: ${{ inputs.scenario || 'stamp-thinking-face.json' }}
     steps:
       - uses: actions/checkout@v7
@@ -48,14 +78,11 @@ jobs:
             libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 libopenal1 \
             libxrandr2 libxinerama1 libxcursor1 libxi6
 
-      - name: Test the scenario tooling
-        run: uv run --no-project python -B -m unittest discover -s game-test/scripts -p 'test_*.py' -v
-
       - name: Run the in-game scenario
         run: |
           chmod +x ./gradlew
           xvfb-run -a -s '-screen 0 1280x720x24' \
-            uv run game-test/scripts/run_game_test.py \
+            uv run --project game-test game-test/scripts/run_game_test.py \
               --minecraft-version "$MINECRAFT_VERSION" \
               --scenario "game-test/scenarios/$SCENARIO"
 
@@ -63,7 +90,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: game-test
+          name: game-test-${{ matrix.minecraft-version }}
           # Minecraft のクライアント・サーバー本体やアセットは再配布しない
           path: |
             build/game-test/screenshots/*.png

@@ -1,0 +1,12 @@
+[project]
+name = "minestamp-game-test"
+version = "0.1.0"
+description = "In-game screenshot test for MineStamp"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.11",
+]
+
+[tool.uv]
+# スクリプト群を実行するだけで、パッケージとしてはインストールしない
+package = false

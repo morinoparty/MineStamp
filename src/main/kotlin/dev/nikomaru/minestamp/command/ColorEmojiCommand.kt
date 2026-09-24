@@ -121,7 +121,9 @@ class ColorEmojiCommand : KoinComponent {
                     }
                 }
                 if (frame < 3) {
-                    sender.server.logger.info("[timing] frame $frame sent: ${(System.nanoTime() - frameStart) / 1_000_000} ms")
+                    sender.server.logger.info(
+                        "[timing] frame $frame sent: ${(System.nanoTime() - frameStart) / 1_000_000} ms"
+                    )
                 }
                 delay(1000L / count)
             }

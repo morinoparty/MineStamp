@@ -23,3 +23,7 @@ uvx --from git+https://github.com/morinoparty/fukurou fukurou validate --scenari
 ```
 
 See the [fukurou README](https://github.com/morinoparty/fukurou#readme) for the scenario format, running it locally, and all inputs.
+
+## Acknowledgements
+
+This test is based on the in-game test workflow of [sya-ri/ktAdvancements](https://github.com/sya-ri/ktAdvancements/blob/master/.github/workflows/game-test.yml).

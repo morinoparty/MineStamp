@@ -9,6 +9,7 @@
 
 package dev.nikomaru.minestamp.utils
 
+import dev.nikomaru.minestamp.font.CbdtEmojiFont
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -24,7 +25,7 @@ class DefaultRandomEmojiTest {
         checkNotNull(javaClass.classLoader.getResourceAsStream(name)) { "$name not found on classpath" }
 
     @Test
-    fun everyDefaultRandomEntryRendersWithFluentEmojiFont() {
+    fun everyDefaultRandomEntryRendersWithCbdtEmojiFont() {
         val shortCodes =
             Json
                 .parseToJsonElement(resource("default-random.json").use { it.readBytes().decodeToString() })
@@ -32,7 +33,7 @@ class DefaultRandomEmojiTest {
 
         val emojiProperties = Properties().apply { resource("emoji.properties").use { load(it) } }
 
-        val font = FluentEmojiFont(resource("FluentEmojiColor-CBDT.ttf").use { it.readBytes() })
+        val font = CbdtEmojiFont(resource("FluentEmojiColor-CBDT.ttf").use { it.readBytes() })
 
         val failures = mutableListOf<String>()
         for (shortCode in shortCodes) {

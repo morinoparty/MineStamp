@@ -5,6 +5,9 @@ description: Commands and configuration for administrators
 
 ## Introduction.
 
+The libraries used by MineStamp (Kotlin, AWS SDK, etc.) are not bundled in the plugin JAR; Paper downloads them automatically from Maven Central on first startup.
+The emoji font is also downloaded on first startup, so the server needs internet access the first time it starts.
+
 Generate public and private keys on the server<br />
 To run `/stamp generate keyPair`<br />
 
@@ -47,7 +50,7 @@ original file is [here](https://github.com/Nlkomaru/MineStamp/blob/master/src/ma
 ### config.json
 
 Basic configuration. This will always be placed on each server.
-The `stamp` section contains the rendering parameters used when summoning stamps.
+The `stamp` section contains the rendering parameters used when summoning stamps, and the `font` section configures the font used for emoji stamps.
 
 ```json
 {
@@ -65,9 +68,38 @@ The `stamp` section contains the rendering parameters used when summoning stamps
     "particleSize": 1.0,
     "accuracy": 32,
     "waitSecond": 5.0
+  },
+  "font": {
+    "file": "FluentEmojiColor-CBDT.ttf",
+    "url": "https://github.com/morinoparty/MineStamp/releases/download/fonts-v1/FluentEmojiColor-CBDT.ttf",
+    "sha256": null
   }
 }
 ```
+
+#### 🔤 Emoji font (`font`)
+
+Emoji stamp images are read from an emoji font placed in the `fonts/` directory.
+The font is not bundled with the plugin. If the file specified by `file` does not exist in `fonts/`, it is downloaded automatically from `url` on first startup.
+
+| Key | Description |
+|-----|-------------|
+| `file` | File name of the font under `fonts/`. Path separators are not allowed. |
+| `url` | Download source used when the file does not exist. If `null`, no download is performed. |
+| `sha256` | If set, the SHA-256 of the downloaded file is verified. |
+
+Only CBDT (color bitmap) emoji fonts are supported. COLRv1 and SVG fonts cannot be used.
+Microsoft Fluent Emoji is used by default. For example, to switch to Noto Color Emoji, set the following and run `/minestamp reload`.
+
+```json
+"font": {
+  "file": "NotoColorEmoji.ttf",
+  "url": "https://raw.githubusercontent.com/googlefonts/noto-emoji/v2.051/fonts/NotoColorEmoji.ttf"
+}
+```
+
+On servers without internet access, place the font file in `fonts/` manually.
+If the font cannot be obtained or loaded, emoji stamps are disabled, but image stamps remain available.
 
 ### random.json
 
@@ -106,6 +138,8 @@ Files in the old format are migrated automatically at startup.
 
 ```
 └── EmojiStamp/
+    ├── fonts/
+    │   └── FluentEmojiColor-CBDT.ttf
     ├── lang/
     │   ├── zh_CN.properties
     │   └── fr_FR.properties
@@ -130,6 +164,8 @@ Directory structure on the local server side
 
 ```
 └── EmojiStamp/
+    ├── fonts/
+    │   └── FluentEmojiColor-CBDT.ttf
     ├── lang/
     │   ├── zh_CN.properties
     │   └── fr_FR.properties

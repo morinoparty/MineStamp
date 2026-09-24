@@ -5,6 +5,9 @@ description: 管理者向けのコマンドと設定
 
 ## はじめに
 
+MineStamp が利用するライブラリ (Kotlin、AWS SDK など) はプラグインの JAR に同梱されておらず、初回起動時に Paper が Maven Central から自動でダウンロードします。
+絵文字フォントも同様に初回起動時にダウンロードされるため、初回起動時はインターネットに接続できる必要があります。
+
 サーバーで公開鍵と秘密鍵を生成します。<br />
 `/stamp generate keyPair` を実行します。
 
@@ -38,7 +41,7 @@ description: フォント更新で描画できなくなった絵文字を、全�
 ### config.json
 
 基本的な設定です。 これは必ず各サーバーに置かれることになります。
-`stamp` セクションはスタンプ召喚時の描画パラメータです。
+`stamp` セクションはスタンプ召喚時の描画パラメータ、`font` セクションは絵文字スタンプに使うフォントの設定です。
 
 ```json
 {
@@ -56,9 +59,38 @@ description: フォント更新で描画できなくなった絵文字を、全�
     "particleSize": 1.0,
     "accuracy": 32,
     "waitSecond": 5.0
+  },
+  "font": {
+    "file": "FluentEmojiColor-CBDT.ttf",
+    "url": "https://github.com/morinoparty/MineStamp/releases/download/fonts-v1/FluentEmojiColor-CBDT.ttf",
+    "sha256": null
   }
 }
 ```
+
+#### 🔤 絵文字フォント (`font`)
+
+絵文字スタンプの画像は、`fonts/` ディレクトリに置かれた絵文字フォントから読み込まれます。
+フォントはプラグインに同梱されておらず、`fonts/` に `file` で指定したファイルが無い場合、初回起動時に `url` から自動でダウンロードされます。
+
+| キー | 説明 |
+|------|------|
+| `file` | `fonts/` 配下のフォントのファイル名です。パス区切り文字は使用できません。 |
+| `url` | ファイルが存在しない場合のダウンロード元です。`null` の場合はダウンロードを行いません。 |
+| `sha256` | 指定した場合、ダウンロードしたファイルの SHA-256 を検証します。 |
+
+対応しているのは CBDT 形式 (カラービットマップ) の絵文字フォントのみです。COLRv1 や SVG 形式のフォントは使用できません。
+既定では Microsoft の Fluent Emoji を使用します。例えば Noto Color Emoji に切り替える場合は、次のように設定して `/minestamp reload` を実行します。
+
+```json
+"font": {
+  "file": "NotoColorEmoji.ttf",
+  "url": "https://raw.githubusercontent.com/googlefonts/noto-emoji/v2.051/fonts/NotoColorEmoji.ttf"
+}
+```
+
+インターネットに接続できないサーバーでは、フォントファイルを手動で `fonts/` に配置してください。
+フォントを取得・読み込みできなかった場合、絵文字スタンプは無効になりますが、画像スタンプは引き続き利用できます。
 
 ### random.json
 
@@ -97,6 +129,8 @@ description: フォント更新で描画できなくなった絵文字を、全�
 
 ```
 └── EmojiStamp/
+    ├── fonts/
+    │   └── FluentEmojiColor-CBDT.ttf
     ├── image/
     │   ├── picture-1.png
     │   └── picture-2.jpg
@@ -116,6 +150,8 @@ description: フォント更新で描画できなくなった絵文字を、全�
 
 ```
 └── EmojiStamp/
+    ├── fonts/
+    │   └── FluentEmojiColor-CBDT.ttf
     ├── config.json
     ├── privateKey
     └── publicKey

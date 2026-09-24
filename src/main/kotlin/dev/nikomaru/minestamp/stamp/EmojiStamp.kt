@@ -9,7 +9,7 @@
 
 package dev.nikomaru.minestamp.stamp
 
-import dev.nikomaru.minestamp.utils.FluentEmojiFont
+import dev.nikomaru.minestamp.font.EmojiFont
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.*
@@ -19,7 +19,7 @@ class EmojiStamp(
 ) : Stamp(shortCode),
     KoinComponent {
     private val emojiProperties: Properties by inject()
-    private val emojiFont: FluentEmojiFont by inject()
+    private val emojiFont: EmojiFont by inject()
     var char: String
 
     /** false if no image could be resolved for this emoji. */

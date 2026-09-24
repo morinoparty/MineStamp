@@ -6,21 +6,26 @@ description: A test that uses fukurou to check how stamps look on a real server 
 ## 🧭 Overview
 
 MineStamp's in-game test runs on [fukurou](https://github.com/morinoparty/fukurou). fukurou starts a real Paper server and a vanilla Minecraft client for each player, drives them from a JSON scenario, and saves screenshots.
-On GitHub Actions it runs for every pull request, and a link to a viewer with the results for all versions is posted on the pull request.
+The server starts only once per version, and every test in that session runs against the same running server. On GitHub Actions it runs for every pull request, and a link to a viewer with the results for all versions is posted on the pull request.
 
-## 📝 Scenarios
+## 📝 Suite and scenarios
 
-Scenarios live in `game-test/scenarios/`. `stamp-thinking-face.json` does the following:
+MineStamp's in-game test is made of one suite file, `game-test/fukurou.yml`, and several tests under `game-test/scenarios/`. The suite holds what every test shares (players, reset settings, fixtures), and each scenario file is one test. The harness resets the world and the clients between tests.
 
-1. Alice (an operator) and Bob join.
-2. Standing on a stone pillar, Alice presses F5 twice to switch to the front view and runs `/st :thinking-face:`.
-3. Screenshots are taken from Alice's view and from Bob's, who stands across from her.
-4. After the stamp cooldown (3 seconds on screen plus a 5-second wait), Alice runs `/st :sleeping-face:`, and both views are captured again.
+`fukurou.yml` defines two fixtures:
 
-See the [fukurou README](https://github.com/morinoparty/fukurou#readme) for the scenario format. To validate a scenario locally, run:
+- `arena` — builds the two stone pillars Alice and Bob face each other from, and teleports them onto their pillar.
+- `front-view` — switches Alice's view to the front view by pressing F5 twice. fukurou switches her back to first person before the next test.
+
+There are two tests:
+
+1. `stamp-thinking-face` — Alice runs `/st :thinking-face:`, and screenshots are taken Alice first, then Bob.
+2. `stamp-sleeping-face` — Alice runs `/st :sleeping-face:`, and screenshots are taken Bob first, then Alice. The order is swapped so that each player ends up with a screenshot of the stamp actually on screen during its 3-second display. The post-reset wait (`settle: 3` seconds) plus the fixture's 2-second wait together clear MineStamp's 3-second stamp cooldown before this test starts.
+
+See the [fukurou README](https://github.com/morinoparty/fukurou#readme) for the suite and scenario format. To validate the whole suite locally, run:
 
 ```sh
-uvx --from git+https://github.com/morinoparty/fukurou fukurou validate --scenario-file game-test/scenarios/stamp-thinking-face.json
+uvx --from git+https://github.com/morinoparty/fukurou@v2 fukurou validate --suite game-test/fukurou.yml
 ```
 
 ## ⚙️ Workflow
@@ -31,10 +36,10 @@ uvx --from git+https://github.com/morinoparty/fukurou fukurou validate --scenari
 | --- | --- |
 | `versions` | Resolves the versions to test with `morinoparty/fukurou/versions` (`1.21.6-` by default). |
 | `build` | Builds the plugin once. |
-| `test` | Runs the scenario on each version with `morinoparty/fukurou`, together with ProtocolLib. |
+| `test` | Runs the whole suite on each version with `morinoparty/fukurou` in a single server session, together with ProtocolLib. |
 | `deploy` | Builds a viewer with the results for all versions with `morinoparty/fukurou/ui` and uploads it to S3. |
-| `preview` | Posts the viewer link on the pull request. |
+| `preview` | Posts the test summary (e.g. "14 passed of 14 test runs") and the viewer link on the pull request. |
 
-MineStamp is compiled to Java 25 bytecode, and Paper 1.21.4 and earlier cannot load it (`Unsupported class file major version 69`), so the default range starts at 1.21.6. When you start the `Game test` workflow manually, you can pick a version range and a scenario.
+MineStamp is compiled to Java 25 bytecode, and Paper 1.21.4 and earlier cannot load it (`Unsupported class file major version 69`), so the default range starts at 1.21.6. When you start the `Game test` workflow manually, you can pick a version range and which test ids / tags to run.
 
 Running the test starts the Minecraft server and clients, and accepts the [Minecraft EULA](https://www.minecraft.net/eula).

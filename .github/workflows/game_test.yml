@@ -7,9 +7,12 @@ on:
       minecraft-versions:
         description: 'Versions: "latest", "1.21.11", "1.21.6-" or "1.21.6-1.21.11"'
         default: "1.21.6-"
-      scenario:
-        description: "Scenario file under game-test/scenarios"
-        default: stamp-thinking-face.json
+      tests:
+        description: "Test ids or globs to run (comma separated). Empty runs the whole suite"
+        default: ""
+      tags:
+        description: "Only tests with one of these tags (comma separated)"
+        default: ""
 
 permissions:
   contents: read
@@ -26,7 +29,7 @@ jobs:
       matrix: ${{ steps.versions.outputs.matrix }}
     steps:
       - id: versions
-        uses: morinoparty/fukurou/versions@v1
+        uses: morinoparty/fukurou/versions@feature/multi-test
         with:
           # MineStamp は Java 25 のバイトコードのため、Paper 1.21.4 以前では読み込めない
           minecraft-version: ${{ inputs.minecraft-versions || '1.21.6-' }}
@@ -61,18 +64,20 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+  # 1バージョン = 1ジョブ。ジョブの中で全テストを1つのサーバーセッションで実行する
   test:
     name: Minecraft ${{ matrix.minecraft-version }}
     needs: [versions, build]
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # 10 + テスト数 × 1 分（fresh-server のテストは 1 つにつき +4 分）
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       max-parallel: 8
       matrix:
         minecraft-version: ${{ fromJSON(needs.versions.outputs.matrix) }}
     steps:
-      # シナリオファイルを読むためにチェックアウトする
+      # スイートとシナリオファイルを読むためにチェックアウトする
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -82,7 +87,8 @@ jobs:
           name: plugin
           path: ${{ runner.temp }}/plugins
 
-      - uses: morinoparty/fukurou@v1
+      - id: fukurou
+        uses: morinoparty/fukurou@feature/multi-test
         with:
           accept-eula: true
           minecraft-version: ${{ matrix.minecraft-version }}
@@ -93,7 +99,10 @@ jobs:
             - github: dmulloy2/ProtocolLib
               tag: dev-build
               asset: ProtocolLib.jar
-          scenario-file: game-test/scenarios/${{ inputs.scenario || 'stamp-thinking-face.json' }}
+          # スイートファイルがシナリオの一覧・共通プレイヤー・fixture を持つ
+          suite: game-test/fukurou.yml
+          tests: ${{ inputs.tests }}
+          tags: ${{ inputs.tags }}
 
   # 各バージョンの結果をまとめたビューアを作り、S3 に公開する
   deploy:
@@ -105,8 +114,10 @@ jobs:
       # URL はバケット名（secret）と同じ文字列を含むため、job output にすると GitHub に捨てられる。
       # アップロードできたかだけを渡し、URL は preview ジョブで組み立てる（preview.yml と同じ方法）
       uploaded: ${{ steps.ui.outputs.uploaded }}
-      # {"total", "passed", "failed", "error"} の JSON。PR コメントに件数を載せる
-      summary: ${{ steps.ui.outputs.summary }}
+      # {"total","passed","failed","error","skipped"}: テスト × バージョンの件数
+      tests-summary: ${{ steps.ui.outputs.tests-summary }}
+      # "stamp-sleeping-face@1.21.11" のような一覧
+      failed-tests: ${{ steps.ui.outputs.failed-tests }}
     steps:
       # fork からの PR には secret が渡らないため取得しない（fukurou/ui はアップロードを飛ばす）
       - name: Get S3 credentials from Bitwarden
@@ -119,7 +130,7 @@ jobs:
             4d92b739-40fc-467f-97fa-b49900deb52c > AWS_SECRET_ACCESS_KEY
 
       - id: ui
-        uses: morinoparty/fukurou/ui@v1
+        uses: morinoparty/fukurou/ui@feature/multi-test
         with:
           title: MineStamp ${{ needs.build.outputs.sha }}
           upload: auto
@@ -131,7 +142,7 @@ jobs:
           s3-prefix: minestamp/${{ needs.build.outputs.sha }}/game-test
           public-base-url: https://moripa-ci.nikomaru.dev
 
-  # preview.yml が投稿したプレビューコメントの「In-game screenshots」の節を、結果とビューアへのリンクで置き換える
+  # preview.yml が投稿したプレビューコメントの「In-game screenshots」の節を、テストの件数とビューアへのリンクで置き換える
   preview:
     needs: [build, test, deploy]
     if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.deploy.outputs.uploaded == 'true' }}
@@ -147,7 +158,8 @@ jobs:
           JAR_NAME: MineStamp-${{ needs.build.outputs.sha }}.jar
           FUKUROU_URL: https://moripa-ci.nikomaru.dev/minestamp/${{ needs.build.outputs.sha }}/game-test/index.html
           RESULT: ${{ needs.test.result }}
-          SUMMARY: ${{ needs.deploy.outputs.summary }}
+          TESTS_SUMMARY: ${{ needs.deploy.outputs.tests-summary }}
+          FAILED_TESTS: ${{ needs.deploy.outputs.failed-tests }}
         run: |
           python3 - <<'PY'
           import json, os, re, subprocess, time
@@ -158,12 +170,18 @@ jobs:
           def gh(*args):
               return subprocess.run(["gh", *args], check=True, capture_output=True, text=True).stdout
 
-          # 節の本文: 全体の結果、件数、ビューアへのリンク
+          # 節の本文: 全体の結果、テスト × バージョンの件数、失敗したテスト、ビューアへのリンク
           icon = {"success": "✅", "failure": "❌"}.get(os.environ["RESULT"], "⚠️")
-          counts = json.loads(os.environ.get("SUMMARY") or "{}")
-          detail = ", ".join(f"{counts[k]} {k}" for k in ("passed", "failed", "error") if counts.get(k))
-          section = f"{start}\n{icon} **{os.environ['RESULT']}**" + (f" ({detail})" if detail else "")
-          section += f" — [Open the viewer]({os.environ['FUKUROU_URL']})\n{end}"
+          counts = json.loads(os.environ.get("TESTS_SUMMARY") or "{}")
+          detail = ", ".join(f"{counts[k]} {k}" for k in ("passed", "failed", "error", "skipped") if counts.get(k))
+          section = f"{start}\n{icon} **{os.environ['RESULT']}**"
+          if detail:
+              section += f" ({detail} of {counts.get('total', 0)} test runs)"
+          section += f" — [Open the viewer]({os.environ['FUKUROU_URL']})"
+          failed = [t for t in os.environ.get("FAILED_TESTS", "").split(",") if t]
+          if failed:
+              section += "\n\nFailed: " + ", ".join(f"`{t}`" for t in failed[:20]) + (" …" if len(failed) > 20 else "")
+          section += f"\n{end}"
 
           def find_preview_comment():
               comments = json.loads(gh("api", "--paginate", "--slurp", f"repos/{repo}/issues/{pr}/comments"))

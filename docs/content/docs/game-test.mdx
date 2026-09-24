@@ -6,21 +6,26 @@ description: fukurou を使い、実際のサーバーとクライアントで�
 ## 🧭 概要
 
 MineStamp のゲーム内テストは、[fukurou](https://github.com/morinoparty/fukurou) を使って実行します。fukurou は、実際の Paper サーバーと、プレイヤーごとのバニラ Minecraft クライアントを起動し、JSON のシナリオどおりに操作してスクリーンショットを保存します。
-GitHub Actions ではプルリクエストごとに実行され、全バージョンの結果をまとめたビューアへのリンクが PR にコメントされます。
+1 バージョンにつきサーバーは 1 回だけ起動し、そのセッションの中でテストを順番に実行します。GitHub Actions ではプルリクエストごとに実行され、全バージョンの結果をまとめたビューアへのリンクが PR にコメントされます。
 
-## 📝 シナリオ
+## 📝 スイートとシナリオ
 
-シナリオは `game-test/scenarios/` に置きます。`stamp-thinking-face.json` では、次の操作を行います。
+MineStamp のゲーム内テストは、1 つのスイートファイル `game-test/fukurou.yml` と、`game-test/scenarios/` に置かれた複数のテストで構成されています。スイートは全テストで共有する内容（プレイヤー、リセット設定、fixture）を持ち、シナリオ 1 ファイルがテスト 1 件に対応します。テストの間はハーネスがワールドとクライアントをリセットします。
 
-1. Alice（OP）と Bob が参加します。
-2. Alice は石の柱の上から F5 を2回押して正面から見た視点にし、`/st :thinking-face:` を実行します。
-3. Alice の視点と、向かいに立つ Bob の視点でスクリーンショットを撮ります。
-4. スタンプのクールダウン（表示時間 3 秒 + 待機時間 5 秒）が明けてから、Alice が `/st :sleeping-face:` を実行し、もう一度 2 人の視点でスクリーンショットを撮ります。
+`fukurou.yml` は次の 2 つの fixture を定義しています。
 
-シナリオの書き方は、[fukurou の README](https://github.com/morinoparty/fukurou#readme) を参照してください。手元でシナリオを検証するには、次のコマンドを実行します。
+- `arena` — Alice と Bob が向かい合う石の柱を作り、それぞれの上に転送します。
+- `front-view` — Alice の視点を F5 を2回押して正面から見た視点にします。fukurou はテストの前に自動で一人称へ戻します。
+
+テストは次の 2 件です。
+
+1. `stamp-thinking-face` — Alice が `/st :thinking-face:` を実行し、Alice → Bob の順にスクリーンショットを撮ります。
+2. `stamp-sleeping-face` — Alice が `/st :sleeping-face:` を実行し、Bob → Alice の順にスクリーンショットを撮ります。撮る順番を入れ替えているのは、スタンプの表示中（3 秒）に両プレイヤーがそれぞれ 1 枚ずつスタンプの写ったスクリーンショットを持てるようにするためです。リセット後の待機（`settle: 3` 秒）と fixture の待機（2 秒）を合わせると、MineStamp のスタンプのクールダウン（3 秒）は次のテストが始まる前に明けています。
+
+スイートとシナリオの書き方は、[fukurou の README](https://github.com/morinoparty/fukurou#readme) を参照してください。手元でスイート全体を検証するには、次のコマンドを実行します。
 
 ```sh
-uvx --from git+https://github.com/morinoparty/fukurou fukurou validate --scenario-file game-test/scenarios/stamp-thinking-face.json
+uvx --from git+https://github.com/morinoparty/fukurou@v2 fukurou validate --suite game-test/fukurou.yml
 ```
 
 ## ⚙️ ワークフロー
@@ -31,10 +36,10 @@ uvx --from git+https://github.com/morinoparty/fukurou fukurou validate --scenari
 | --- | --- |
 | `versions` | `morinoparty/fukurou/versions` で、テストするバージョンの一覧を決めます（既定は `1.21.6-`）。 |
 | `build` | プラグインを1回だけビルドします。 |
-| `test` | バージョンごとに `morinoparty/fukurou` でシナリオを実行します。ProtocolLib も一緒に導入します。 |
+| `test` | バージョンごとに `morinoparty/fukurou` でスイート全体を 1 つのサーバーセッションで実行します。ProtocolLib も一緒に導入します。 |
 | `deploy` | `morinoparty/fukurou/ui` で全バージョンの結果をまとめたビューアを作り、S3 にアップロードします。 |
-| `preview` | ビューアへのリンクを PR にコメントします。 |
+| `preview` | テストの件数（例: "14 passed of 14 test runs"）とビューアへのリンクを PR にコメントします。 |
 
-MineStamp は Java 25 のバイトコードでビルドされており、Paper 1.21.4 以前では読み込めない（`Unsupported class file major version 69`）ため、既定の範囲は 1.21.6 以降にしています。`Game test` ワークフローを手動で実行するときは、バージョンの範囲とシナリオを選べます。
+MineStamp は Java 25 のバイトコードでビルドされており、Paper 1.21.4 以前では読み込めない（`Unsupported class file major version 69`）ため、既定の範囲は 1.21.6 以降にしています。`Game test` ワークフローを手動で実行するときは、バージョンの範囲と、実行するテストの id / タグを選べます。
 
 テストを実行すると Minecraft のサーバーとクライアントを起動するため、[Minecraft EULA](https://www.minecraft.net/eula) に同意したことになります。

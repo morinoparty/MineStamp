@@ -102,17 +102,26 @@ class ColorEmojiCommand : KoinComponent {
         try {
             val pm = ProtocolLibrary.getProtocolManager()
             // 位置・色はフレーム間で不変のため、パケットは1回だけ生成して各フレームで再送する
+            // [timing] 一時的な計測: パケットの組み立てと、各フレームの送信にかかった時間
+            val buildStart = System.nanoTime()
             val packets = buildParticlePackets(stamp.getStamp(), config, sender.location, pm)
+            sender.server.logger.info(
+                "[timing] build ${stamp.shortCode}: ${(System.nanoTime() - buildStart) / 1_000_000} ms, ${packets.size} packets"
+            )
             if (packets.isEmpty()) return
             val count = 8
 
-            repeat(count * config.second) {
+            repeat(count * config.second) { frame ->
+                val frameStart = System.nanoTime()
                 coroutineScope {
                     packets.chunked(256).forEach { chunk ->
                         launch(Dispatchers.IO) {
                             chunk.forEach(pm::broadcastServerPacket)
                         }
                     }
+                }
+                if (frame < 3) {
+                    sender.server.logger.info("[timing] frame $frame sent: ${(System.nanoTime() - frameStart) / 1_000_000} ms")
                 }
                 delay(1000L / count)
             }

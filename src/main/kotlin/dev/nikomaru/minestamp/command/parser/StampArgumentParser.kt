@@ -115,7 +115,10 @@ class StampArgumentParser<CommandSender> :
         commandInput: CommandInput
     ): ArgumentParseResult<Stamp> {
         val code = stripEmojiPrefix(commandInput.readString())
+        // [timing] 一時的な計測: スタンプ（画像）の解決にかかった時間
+        val resolveStart = System.nanoTime()
         val stamp = StampManager.getStamp(code)
+        plugin.logger.info("[timing] resolve $code: ${(System.nanoTime() - resolveStart) / 1_000_000} ms")
         if (stamp == null) {
             return ArgumentParseResult.failure(IllegalArgumentException("Stamp not found"))
         }

@@ -32,8 +32,11 @@ PORTABLEMC_URL = (
     f"https://github.com/theorzr/portablemc/releases/download/v{PORTABLEMC_VERSION}/{PORTABLEMC_ARCHIVE}"
 )
 
-# 初回起動の案内画面やポーズを抑止し、GUI の大きさを固定するクライアント設定
+# 初回起動の案内画面やポーズを抑止し、GUI の大きさを固定するクライアント設定。
+# ソフトウェアレンダリングの複数クライアントとサーバーが CPU を取り合うため、FPS も制限する
 CLIENT_OPTIONS = """\
+maxFps:30
+enableVsync:false
 guiScale:2
 fullscreen:false
 onboardAccessibility:false

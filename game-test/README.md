@@ -5,8 +5,8 @@ MineStamp's in-game screenshot test runs on [fukurou](https://github.com/morinop
 This directory holds:
 
 - `fukurou.yml` — the suite. It lists the scenario files, the shared players (Alice, an operator, and Bob), the reset settings and two fixtures: `arena` (the stone pillars both players stand on) and `front-view` (switches Alice to the front view with F5 twice).
-- `scenarios/stamp-thinking-face.json` — Alice runs `/st :thinking-face:`. Alice takes a screenshot first, then Bob, who watches from across.
-- `scenarios/stamp-sleeping-face.json` — Alice runs `/st :sleeping-face:`. Bob takes a screenshot first this time, then Alice, so each test leaves both players with a screenshot of the stamp actually on screen. The suite's `settle: 3` (after the harness resets the world) plus the fixture's 2-second wait comfortably clear MineStamp's 3-second stamp cooldown before this test starts.
+- `scenarios/stamp-thinking-face.json` — Alice runs `/st :thinking-face:`, then both players take their screenshot at the same moment (`"on": ["Alice", "Bob"]`), 1.5 seconds after the command lands, while the stamp is still on screen.
+- `scenarios/stamp-sleeping-face.json` — same shape, with `/st :sleeping-face:`. MineStamp's stamp cooldown is 3 seconds of display plus a 5-second `waitSecond`, 8 seconds total. The suite's `settle: 5` (after the harness resets the world) plus the fixture's 2-second wait plus the 1.5-second wait before the previous test's screenshot together clear it before this test starts.
 
 The workflow is `.github/workflows/game_test.yml`:
 

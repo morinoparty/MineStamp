@@ -19,8 +19,10 @@ MineStamp のゲーム内テストは、1 つのスイートファイル `game-t
 
 テストは次の 2 件です。
 
-1. `stamp-thinking-face` — Alice が `/st :thinking-face:` を実行し、Alice → Bob の順にスクリーンショットを撮ります。
-2. `stamp-sleeping-face` — Alice が `/st :sleeping-face:` を実行し、Bob → Alice の順にスクリーンショットを撮ります。撮る順番を入れ替えているのは、スタンプの表示中（3 秒）に両プレイヤーがそれぞれ 1 枚ずつスタンプの写ったスクリーンショットを持てるようにするためです。リセット後の待機（`settle: 3` 秒）と fixture の待機（2 秒）を合わせると、MineStamp のスタンプのクールダウン（3 秒）は次のテストが始まる前に明けています。
+1. `stamp-thinking-face` — Alice が `/st :thinking-face:` を実行します。
+2. `stamp-sleeping-face` — Alice が `/st :sleeping-face:` を実行します。
+
+どちらのテストも、コマンドがサーバーに届いたログを確認したあと 1.5 秒待ち、`"on": ["Alice", "Bob"]` で両プレイヤーが同時にスクリーンショットを撮ります。スタンプは 3 秒間表示されるので、1.5 秒待ってからならまだ画面に残っています。MineStamp のスタンプのクールダウンは表示 3 秒 + `waitSecond` 5 秒 で 8 秒です。前のテストのスクリーンショット前の待機（1.5 秒）と、リセット後の待機（`settle: 5` 秒）、fixture の待機（2 秒）を合わせると 8.5 秒以上になり、次のテストのスタンプ送信までにクールダウンが明けています。
 
 スイートとシナリオの書き方は、[fukurou の README](https://github.com/morinoparty/fukurou#readme) を参照してください。手元でスイート全体を検証するには、次のコマンドを実行します。
 

@@ -5,9 +5,8 @@
   "steps": [
     { "on": "Alice", "action": "chat", "text": "/st :sleeping-face:" },
     { "on": "server", "action": "wait_for_log", "pattern": "Alice issued server command: /st :sleeping-face:", "timeout": 10 },
-    { "action": "wait", "seconds": 1 },
-    { "on": "Bob", "action": "screenshot", "name": "after-stamp" },
-    { "on": "Alice", "action": "screenshot", "name": "after-stamp" },
+    { "action": "wait", "seconds": 1.5 },
+    { "on": ["Alice", "Bob"], "action": "screenshot", "name": "after-stamp" },
     { "on": "Alice", "action": "assert_no_log", "pattern": "\\[CHAT\\].*(Unknown( or incomplete)? command|Stamp not found|do not have that stamp|cannot summon)" }
   ]
 }

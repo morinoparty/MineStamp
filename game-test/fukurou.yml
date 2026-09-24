@@ -6,8 +6,10 @@ players:
   - { name: Bob }
 isolation: reset
 # リセット後に5秒待つ: クライアントがブロック更新を受け取る時間を兼ねる。
-# MineStamp のスタンプのクールダウンは表示3秒 + waitSecond 5秒 = 8秒なので、
-# 前のテストのスタンプから次のテストのスタンプまで、この待ちと fixture の wait で8秒以上空ける
+# MineStamp のスタンプのクールダウンは表示3秒 + waitSecond 5秒 = 8秒。
+# 前のテストはスタンプ送信後に1.5秒待ってから両プレイヤー同時に撮影するので、
+# その1.5秒 + このsettleの5秒 + arena fixtureのwait 2秒 = 8.5秒以上空き、
+# 次のテストのスタンプ送信までにクールダウンが明ける
 settle: 5
 fixtures:
   # AliceとBobが向かい合う石の柱。time/weather/インベントリ等のリセットはfukurouが行う

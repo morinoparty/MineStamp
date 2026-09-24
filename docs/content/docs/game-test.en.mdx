@@ -19,8 +19,10 @@ MineStamp's in-game test is made of one suite file, `game-test/fukurou.yml`, and
 
 There are two tests:
 
-1. `stamp-thinking-face` — Alice runs `/st :thinking-face:`, and screenshots are taken Alice first, then Bob.
-2. `stamp-sleeping-face` — Alice runs `/st :sleeping-face:`, and screenshots are taken Bob first, then Alice. The order is swapped so that each player ends up with a screenshot of the stamp actually on screen during its 3-second display. The post-reset wait (`settle: 3` seconds) plus the fixture's 2-second wait together clear MineStamp's 3-second stamp cooldown before this test starts.
+1. `stamp-thinking-face` — Alice runs `/st :thinking-face:`.
+2. `stamp-sleeping-face` — Alice runs `/st :sleeping-face:`.
+
+Both tests wait 1.5 seconds after the server log confirms the command, then take both players' screenshots at the same moment with `"on": ["Alice", "Bob"]`. The stamp stays on screen for 3 seconds, so it is still visible 1.5 seconds in. MineStamp's stamp cooldown is 3 seconds of display plus a 5-second `waitSecond`, 8 seconds total. The 1.5-second wait before the previous test's screenshot, the post-reset wait (`settle: 5` seconds) and the fixture's 2-second wait together add up to 8.5 seconds or more, which clears the cooldown before this test's stamp is sent.
 
 See the [fukurou README](https://github.com/morinoparty/fukurou#readme) for the suite and scenario format. To validate the whole suite locally, run:
 

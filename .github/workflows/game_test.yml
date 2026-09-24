@@ -13,6 +13,9 @@ on:
       tags:
         description: "Only tests with one of these tags (comma separated)"
         default: ""
+      paper-channel:
+        description: "Least stable Paper build channel to test: stable, beta or alpha"
+        default: alpha
 
 permissions:
   contents: read
@@ -28,11 +31,17 @@ jobs:
     outputs:
       matrix: ${{ steps.versions.outputs.matrix }}
     steps:
+      # 3つのアクションは同じタグを使う(fukurou docs/usage.md 参照)。
+      # game-test/scenarios は "on": ["Alice","Bob"] という複数プレイヤー指定を使っており、これには fukurou 2.1 以降が必要
+      # (2.0 の on は文字列1つのみ許可し、リストを渡すとバリデーションエラーになる)。
+      # v2 タグは常に fukurou 2.1.0 以降を指している必要がある
       - id: versions
-        uses: morinoparty/fukurou/versions@v2
+        uses: morinoparty/fukurou/versions@feature/parallel-repeat
         with:
           # MineStamp は Java 25 のバイトコードのため、Paper 1.21.4 以前では読み込めない
           minecraft-version: ${{ inputs.minecraft-versions || '1.21.6-' }}
+          # 26.3 のように Paper がまだ alpha のバージョンも含めて確認する
+          paper-channel: ${{ inputs.paper-channel || 'alpha' }}
 
   # テスト対象のプラグインを1回だけビルドし、各バージョンのジョブで使い回す
   build:
@@ -87,11 +96,13 @@ jobs:
           name: plugin
           path: ${{ runner.temp }}/plugins
 
+      # fukurou 2.1 が必要な理由は versions ジョブのコメントを参照
       - id: fukurou
-        uses: morinoparty/fukurou@v2
+        uses: morinoparty/fukurou@feature/parallel-repeat
         with:
           accept-eula: true
           minecraft-version: ${{ matrix.minecraft-version }}
+          paper-channel: ${{ inputs.paper-channel || 'alpha' }}
           plugins-dir: ${{ runner.temp }}/plugins
           plugins: "*-all.jar"
           # スタンプの描画に ProtocolLib を使う
@@ -130,7 +141,7 @@ jobs:
             4d92b739-40fc-467f-97fa-b49900deb52c > AWS_SECRET_ACCESS_KEY
 
       - id: ui
-        uses: morinoparty/fukurou/ui@v2
+        uses: morinoparty/fukurou/ui@feature/parallel-repeat
         with:
           title: MineStamp ${{ needs.build.outputs.sha }}
           upload: auto

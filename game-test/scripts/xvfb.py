@@ -36,13 +36,15 @@ class VirtualDisplay:
         executable = shutil.which("Xvfb")
         if executable is None:
             raise GameProcessError("Xvfb is not installed (apt-get install xvfb)")
-        # -displayfd を使うと、Xvfb が空き番号を選んで準備完了後にその番号を書き込んでくれる
+        # -displayfd を使うと、Xvfb が空き番号を選んで準備完了後にその番号を書き込んでくれる。
+        # Xvfb は最後のクライアントが切断するとリセットして番号を再度書き込もうとし、閉じたパイプへの
+        # 書き込みで異常終了する（GLFW の初期化時に一度接続・切断される）。-noreset でリセットを止める
         read_fd, write_fd = os.pipe()
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with self.log_path.open("wb") as log:
                 self._process = subprocess.Popen(
-                    [executable, "-displayfd", str(write_fd), "-screen", "0", SCREEN, "-nolisten", "tcp"],
+                    [executable, "-displayfd", str(write_fd), "-screen", "0", SCREEN, "-nolisten", "tcp", "-noreset"],
                     stdin=subprocess.DEVNULL,
                     stdout=log,
                     stderr=subprocess.STDOUT,

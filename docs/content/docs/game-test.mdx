@@ -5,59 +5,91 @@ description: 実際のサーバーとクライアントを起動し、JSONシナ
 
 ## 🧭 概要
 
-ゲーム内テストでは、実際の Paper サーバーとバニラの Minecraft クライアントを起動します。クライアントは JSON で書いたシナリオどおりに操作され、スタンプの見た目をスクリーンショットとして保存します。
+ゲーム内テストでは、実際の Paper サーバーと、1人以上のプレイヤーのバニラ Minecraft クライアントを起動します。クライアントは JSON で書いたシナリオどおりに操作され、スタンプの見た目をスクリーンショットとして保存します。
 GitHub Actions ではプルリクエストごとに実行され、スクリーンショットとログが成果物（artifact）としてアップロードされます。
 
 処理の流れは次のとおりです。
 
 1. Mojang のバージョンマニフェストと Paper の API から、テストするバージョンを決めます。`latest` を指定すると、Paper の最新ビルドが `STABLE` である最新リリースが選ばれます。`1.20-` のように範囲を指定すると、1.20 以降で Paper の `STABLE` ビルドがある全リリースが対象になり、CI ではバージョンごとに matrix のジョブとして実行されます。
 2. Gradle の `runGameTestServer` タスクで、MineStamp と ProtocolLib を導入した Paper サーバーを起動します。サーバーはオフラインモードのフラットワールドで、RCON を有効にしています。
-3. PortableMC で、バニラクライアントとそのバージョン用の Mojang 公式 Java ランタイムを用意して起動し、Quick Play でサーバーに参加させます。Microsoft アカウントは不要です。
-4. シナリオの各ステップを順に実行します。キー入力は `xdotool` でクライアントのウィンドウに送ります。
-5. スクリーンショットは `build/game-test/screenshots/` に、ログは `build/game-test/logs/` に保存されます。
+3. プレイヤーごとに専用の仮想ディスプレイ（Xvfb）を用意し、PortableMC でバニラクライアントとそのバージョン用の Mojang 公式 Java ランタイムを用意して起動します。プレイヤーは1人ずつ Quick Play でサーバーに参加し、`op` を指定したプレイヤーは参加後に OP になります。Microsoft アカウントは不要です。
+4. シナリオの各ステップを順に実行します。各ステップは、サーバー・特定のプレイヤー・共通のいずれかを対象にします。
+5. スクリーンショットは `build/game-test/screenshots/<プレイヤー名>/` に、ログは `build/game-test/logs/` に保存されます。
 
 スタンプはパーティクルで描画されるため、描画結果がピクセル単位では毎回一致しません。そのため、基準画像との比較は行っていません。
 
 ## 📝 シナリオの書き方
 
-シナリオは、アクションを並べた JSON 配列です。ファイルは `game-test/scenarios/` に置きます。各アクションは `game-test/scripts/scenario.py` で pydantic のモデルとして定義されており、`action` の値でどのモデルとして検証するかが決まります。
+シナリオには、参加するプレイヤー（`players`）と、実行するステップ（`steps`）を書きます。ファイルは `game-test/scenarios/` に置きます。
+各ステップの `on` で、アクションの対象を指定します。
+
+- `"on": "server"` の場合は、サーバーに対するアクションです。
+- `"on": "<プレイヤー名>"` の場合は、そのプレイヤーのクライアントに対するアクションです。プレイヤーは `players` に書いておく必要があります。
+- `on` を書かない場合は、共通のアクションです。
+
+アクションは対象ごとに pydantic のモデルとして定義されており（`game-test/scripts/scenario/`）、`action` の値でどのモデルとして検証するかが決まります。対象に合わないアクション、未知のフィールド、`players` に無いプレイヤー名は、サーバーを起動する前にエラーになります。
+
+`players` の各要素:
+
+| フィールド | 説明 |
+| --- | --- |
+| `name` | オフラインのプレイヤー名（3〜16文字の英数字と `_`）。`server` は予約されているため使えません。 |
+| `op` | 省略可。`true` の場合、参加後に OP になります。 |
+
+サーバーのアクション（`"on": "server"`）:
+
+| アクション | フィールド | 説明 |
+| --- | --- | --- |
+| `command` | `command` | RCON 経由でコンソールコマンドを実行します。 |
+| `wait_for_log` | `pattern`、`timeout`（省略可） | サーバーのログに正規表現が現れるまで待ちます。タイムアウトの既定値は60秒です。 |
+| `assert_no_log` | `pattern` | サーバーのログに正規表現が現れていたら失敗にします。 |
+
+プレイヤーのアクション（`"on": "<プレイヤー名>"`）:
 
 | アクション | フィールド | 説明 |
 | --- | --- | --- |
 | `press_key` | `key` | キーを1回押して離します。`F5`、`t`、`Return` などの X11 の keysym 名で指定します。`Enter` と `Esc` も使えます。 |
-| `type_text` | `text` | 文字列をキー入力します。チャット欄を開いた後などに使います。 |
+| `type_text` | `text` | 文字列をキー入力します。 |
+| `chat` | `text` | T でチャット欄を開き、文字列を入力して Enter で送信します。コマンドも送れます。 |
+| `wait_for_log` | `pattern`、`timeout`（省略可） | クライアントのログに正規表現が現れるまで待ちます。チャットは `[CHAT]` 付きで記録されます。 |
+| `assert_no_log` | `pattern` | クライアントのログに正規表現が現れていたら失敗にします。 |
+| `screenshot` | `name` | F2 でスクリーンショットを撮り、`<プレイヤー名>/<name>.png` として保存します。 |
+
+共通のアクション（`on` なし）:
+
+| アクション | フィールド | 説明 |
+| --- | --- | --- |
 | `wait` | `seconds` | 指定した秒数だけ待ちます。 |
-| `wait_for_log` | `pattern`、`source`（省略可）、`timeout`（省略可） | `client`（既定）または `server` のログに正規表現が現れるまで待ちます。タイムアウトの既定値は60秒です。 |
-| `assert_no_log` | `pattern`、`source`（省略可） | ログに正規表現が現れていたら失敗にします。 |
-| `server_command` | `command` | RCON 経由でサーバーのコンソールコマンドを実行します。 |
-| `screenshot` | `name` | F2 でスクリーンショットを撮り、`<name>.png` として保存します。 |
 
-未知のアクションやフィールドは、サーバーを起動する前にエラーになります。そのため、タイプミスはすぐに見つかります。
-
-次の例は、F5 を2回押して正面から見た視点にし、`/st :thinking-face:` を実行してからスクリーンショットを撮ります（一部を省略しています）。
+次の例では、Alice が F5 を2回押して正面から見た視点にし、`/st :thinking-face:` を実行します。向かいに立つ Bob からの見え方と合わせて、スクリーンショットを撮ります（一部を省略しています）。
 
 ```json
-[
-  { "action": "wait_for_log", "pattern": "\\[CHAT\\] MineStampTest joined the game", "timeout": 300 },
-  { "action": "server_command", "command": "op MineStampTest" },
-  { "action": "press_key", "key": "F5" },
-  { "action": "press_key", "key": "F5" },
-  { "action": "press_key", "key": "t" },
-  { "action": "type_text", "text": "/st :thinking-face:" },
-  { "action": "press_key", "key": "Return" },
-  { "action": "wait", "seconds": 1 },
-  { "action": "screenshot", "name": "stamp-thinking-face" }
-]
+{
+  "players": [
+    { "name": "Alice", "op": true },
+    { "name": "Bob" }
+  ],
+  "steps": [
+    { "on": "server", "action": "command", "command": "tp Alice 0.5 -49 0.5 0 30" },
+    { "on": "server", "action": "command", "command": "tp Bob 0.5 -49 8.5 180 -15" },
+    { "action": "wait", "seconds": 10 },
+    { "on": "Alice", "action": "press_key", "key": "F5" },
+    { "on": "Alice", "action": "press_key", "key": "F5" },
+    { "on": "Alice", "action": "chat", "text": "/st :thinking-face:" },
+    { "action": "wait", "seconds": 1 },
+    { "on": "Alice", "action": "screenshot", "name": "stamp-thinking-face" },
+    { "on": "Bob", "action": "screenshot", "name": "stamp-thinking-face" }
+  ]
+}
 ```
 
 ## 🚀 実行方法
 
-Linux（X11）で実行します。Java 25、[uv](https://docs.astral.sh/uv/)、`xvfb`、`xdotool` が必要です。
+Linux で実行します。Java 25、[uv](https://docs.astral.sh/uv/)、`xvfb`、`xdotool` が必要です。仮想ディスプレイはスクリプトが起動するため、`xvfb-run` は不要です。
 
 ```sh
-xvfb-run -a -s '-screen 0 1280x720x24' \
-  uv run --project game-test game-test/scripts/run_game_test.py \
-    --scenario game-test/scenarios/stamp-thinking-face.json
+uv run --project game-test game-test/scripts/run_game_test.py \
+  --scenario game-test/scenarios/stamp-thinking-face.json
 ```
 
 `--minecraft-version` でバージョン（例: `1.21.11`）を指定できます。既定値は `latest` です。

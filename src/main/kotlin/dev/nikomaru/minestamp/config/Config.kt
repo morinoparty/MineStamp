@@ -16,6 +16,7 @@ import dev.nikomaru.minestamp.config.PlayerDefaultEmojiConfigData
 import dev.nikomaru.minestamp.data.ImageListData
 import dev.nikomaru.minestamp.font.EmojiFont
 import dev.nikomaru.minestamp.font.EmojiFontLoader
+import dev.nikomaru.minestamp.font.EmojiImageWarmup
 import dev.nikomaru.minestamp.stamp.StampManager
 import dev.nikomaru.minestamp.utils.LangUtils
 import dev.nikomaru.minestamp.utils.Utils
@@ -40,6 +41,7 @@ import org.koin.core.component.inject
 import org.koin.core.context.loadKoinModules
 import org.koin.dsl.module
 import software.amazon.awssdk.core.sync.RequestBody
+import java.util.Properties
 
 object Config : KoinComponent {
     val plugin: MineStamp by inject()
@@ -86,6 +88,11 @@ object Config : KoinComponent {
                         loadKoinModules(module { single<EmojiFont> { emojiFont } })
                     }
                 launch { LangUtils.loadLocale() }
+                launch {
+                    // 最初の /stamp でメインスレッドが止まらないよう、画像デコーダーの初期化を先に済ませる
+                    emojiFontJob.join()
+                    EmojiImageWarmup.warmUp(get<EmojiFont>(), get<Properties>(), plugin.logger)
+                }
                 launch {
                     // sanitizeRandomConfigがフォントに依存するため、フォントの登録を待つ
                     emojiFontJob.join()

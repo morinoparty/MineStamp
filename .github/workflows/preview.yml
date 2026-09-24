@@ -242,6 +242,11 @@ jobs:
           | Resource | Link |
           |----------|------|
           | 📖 Documentation | [Preview]($DOCS_PREVIEW_URL) |
+
+          ### 🦉 In-game screenshots
+          <!-- fukurou:start -->
+          ⏳ Running… (updated by the Game test workflow when it finishes)
+          <!-- fukurou:end -->
           EOF
 
       - name: Create PR comment

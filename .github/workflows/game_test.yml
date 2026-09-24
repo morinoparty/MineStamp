@@ -1,0 +1,216 @@
+name: Game test
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      minecraft-versions:
+        description: 'Versions: "latest", "1.21.11", "1.21.6-" or "1.21.6-1.21.11"'
+        default: "1.21.6-"
+      tests:
+        description: "Test ids or globs to run (comma separated). Empty runs the whole suite"
+        default: ""
+      tags:
+        description: "Only tests with one of these tags (comma separated)"
+        default: ""
+      paper-channel:
+        description: "Least stable Paper build channel to test: stable, beta or alpha"
+        default: alpha
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # テストするバージョンの一覧を fukurou から受け取り、test ジョブの matrix にする
+  versions:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.versions.outputs.matrix }}
+    steps:
+      # 3つのアクションは同じタグを使う(fukurou docs/usage.md 参照)。
+      # game-test/scenarios は "on": ["Alice","Bob"] という複数プレイヤー指定を使っており、これには fukurou 2.1 以降が必要
+      # (2.0 の on は文字列1つのみ許可し、リストを渡すとバリデーションエラーになる)。
+      # v2 タグは常に fukurou 2.1.0 以降を指している必要がある
+      - id: versions
+        uses: morinoparty/fukurou/versions@v2
+        with:
+          # MineStamp は Java 25 のバイトコードのため、Paper 1.21.4 以前では読み込めない
+          minecraft-version: ${{ inputs.minecraft-versions || '1.21.6-' }}
+          # 26.3 のように Paper がまだ alpha のバージョンも含めて確認する
+          paper-channel: ${{ inputs.paper-channel || 'alpha' }}
+
+  # テスト対象のプラグインを1回だけビルドし、各バージョンのジョブで使い回す
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - id: sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - run: |
+          chmod +x ./gradlew
+          ./gradlew shadowJar --no-daemon --console=plain
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: plugin
+          path: build/libs/*-all.jar
+          if-no-files-found: error
+          retention-days: 3
+
+  # 1バージョン = 1ジョブ。ジョブの中で全テストを1つのサーバーセッションで実行する
+  test:
+    name: Minecraft ${{ matrix.minecraft-version }}
+    needs: [versions, build]
+    runs-on: ubuntu-24.04
+    # 10 + テスト数 × 1 分（fresh-server のテストは 1 つにつき +4 分）
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        minecraft-version: ${{ fromJSON(needs.versions.outputs.matrix) }}
+    steps:
+      # スイートとシナリオファイルを読むためにチェックアウトする
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: plugin
+          path: ${{ runner.temp }}/plugins
+
+      # fukurou 2.1 が必要な理由は versions ジョブのコメントを参照
+      - id: fukurou
+        uses: morinoparty/fukurou@v2
+        with:
+          accept-eula: true
+          minecraft-version: ${{ matrix.minecraft-version }}
+          paper-channel: ${{ inputs.paper-channel || 'alpha' }}
+          plugins-dir: ${{ runner.temp }}/plugins
+          plugins: "*-all.jar"
+          # スタンプの描画に ProtocolLib を使う
+          dependencies: |
+            - github: dmulloy2/ProtocolLib
+              tag: dev-build
+              asset: ProtocolLib.jar
+          # スイートファイルがシナリオの一覧・共通プレイヤー・fixture を持つ
+          suite: game-test/fukurou.yml
+          tests: ${{ inputs.tests }}
+          tags: ${{ inputs.tags }}
+
+  # 各バージョンの結果をまとめたビューアを作り、S3 に公開する
+  deploy:
+    needs: [build, test]
+    # 一部のバージョンが失敗しても、失敗時のスクリーンショットを見られるようにする
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-24.04
+    outputs:
+      # URL はバケット名（secret）と同じ文字列を含むため、job output にすると GitHub に捨てられる。
+      # アップロードできたかだけを渡し、URL は preview ジョブで組み立てる（preview.yml と同じ方法）
+      uploaded: ${{ steps.ui.outputs.uploaded }}
+      # {"total","passed","failed","error","skipped"}: テスト × バージョンの件数
+      tests-summary: ${{ steps.ui.outputs.tests-summary }}
+      # "stamp-sleeping-face@1.21.11" のような一覧
+      failed-tests: ${{ steps.ui.outputs.failed-tests }}
+    steps:
+      # fork からの PR には secret が渡らないため取得しない（fukurou/ui はアップロードを飛ばす）
+      - name: Get S3 credentials from Bitwarden
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: bitwarden/sm-action@v2
+        with:
+          access_token: ${{ secrets.NIKOMARU_BITWARDEN_SECRET_MANAGER_ACCESS_TOKEN }}
+          secrets: |
+            37e4d53a-a898-4e9f-b067-b49900deaf4f > AWS_ACCESS_KEY_ID
+            4d92b739-40fc-467f-97fa-b49900deb52c > AWS_SECRET_ACCESS_KEY
+
+      - id: ui
+        uses: morinoparty/fukurou/ui@v2
+        with:
+          title: MineStamp ${{ needs.build.outputs.sha }}
+          upload: auto
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          s3-endpoint: ${{ secrets.S3_ENDPOINT }}
+          s3-bucket: ${{ secrets.S3_UPLOAD_BUCKET }}
+          # preview.yml と同じ minestamp/<sha>/ の下に置く
+          s3-prefix: minestamp/${{ needs.build.outputs.sha }}/game-test
+          public-base-url: https://moripa-ci.nikomaru.dev
+
+  # preview.yml が投稿したプレビューコメントの「In-game screenshots」の節を、テストの件数とビューアへのリンクで置き換える
+  preview:
+    needs: [build, test, deploy]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.deploy.outputs.uploaded == 'true' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Update the preview comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          # preview.yml のコメントは JAR 名に短縮 SHA を含むので、同じコミットのコメントを見分けられる
+          JAR_NAME: MineStamp-${{ needs.build.outputs.sha }}.jar
+          FUKUROU_URL: https://moripa-ci.nikomaru.dev/minestamp/${{ needs.build.outputs.sha }}/game-test/index.html
+          RESULT: ${{ needs.test.result }}
+          TESTS_SUMMARY: ${{ needs.deploy.outputs.tests-summary }}
+          FAILED_TESTS: ${{ needs.deploy.outputs.failed-tests }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess, time
+
+          repo, pr = os.environ["GITHUB_REPOSITORY"], os.environ["PR"]
+          start, end = "<!-- fukurou:start -->", "<!-- fukurou:end -->"
+
+          def gh(*args):
+              return subprocess.run(["gh", *args], check=True, capture_output=True, text=True).stdout
+
+          # 節の本文: 全体の結果、テスト × バージョンの件数、失敗したテスト、ビューアへのリンク
+          icon = {"success": "✅", "failure": "❌"}.get(os.environ["RESULT"], "⚠️")
+          counts = json.loads(os.environ.get("TESTS_SUMMARY") or "{}")
+          detail = ", ".join(f"{counts[k]} {k}" for k in ("passed", "failed", "error", "skipped") if counts.get(k))
+          section = f"{start}\n{icon} **{os.environ['RESULT']}**"
+          if detail:
+              section += f" ({detail} of {counts.get('total', 0)} test runs)"
+          section += f" — [Open the viewer]({os.environ['FUKUROU_URL']})"
+          failed = [t for t in os.environ.get("FAILED_TESTS", "").split(",") if t]
+          if failed:
+              section += "\n\nFailed: " + ", ".join(f"`{t}`" for t in failed[:20]) + (" …" if len(failed) > 20 else "")
+          section += f"\n{end}"
+
+          def find_preview_comment():
+              comments = json.loads(gh("api", "--paginate", "--slurp", f"repos/{repo}/issues/{pr}/comments"))
+              matches = [c for page in comments for c in page
+                         if start in c["body"] and os.environ["JAR_NAME"] in c["body"]]
+              return matches[-1] if matches else None
+
+          # ゲームのテストの方が遅いので通常は既にあるが、プレビューがまだなら最大10分待つ
+          for _ in range(20):
+              comment = find_preview_comment()
+              if comment:
+                  body = re.sub(re.escape(start) + r".*?" + re.escape(end), lambda _: section, comment["body"], flags=re.S)
+                  gh("api", "-X", "PATCH", f"repos/{repo}/issues/comments/{comment['id']}", "-f", f"body={body}")
+                  print(f"Updated preview comment {comment['id']}")
+                  break
+              time.sleep(30)
+          else:
+              # プレビューコメントが見つからない場合は、単独のコメントとして投稿する
+              gh("pr", "comment", pr, "--repo", repo, "--body", f"### 🦉 In-game screenshots\n{section}")
+              print("Preview comment not found; posted a separate comment")
+          PY

@@ -1,0 +1,25 @@
+$schema: https://raw.githubusercontent.com/morinoparty/fukurou/v2/schema/suite.v1.json
+scenarios:
+  - scenarios/*.json
+players:
+  - { name: Alice, op: true }
+  - { name: Bob }
+isolation: reset
+# リセット後に5秒待つ: クライアントがブロック更新を受け取る時間を兼ねる。
+# MineStamp のスタンプのクールダウンは表示3秒 + waitSecond 5秒 = 8秒。
+# 前のテストはスタンプ送信後に1.5秒待ってから両プレイヤー同時に撮影するので、
+# その1.5秒 + このsettleの5秒 + arena fixtureのwait 2秒 = 8.5秒以上空き、
+# 次のテストのスタンプ送信までにクールダウンが明ける
+settle: 5
+fixtures:
+  # AliceとBobが向かい合う石の柱。time/weather/インベントリ等のリセットはfukurouが行う
+  arena:
+    - { on: server, action: command, command: "fill 0 -60 0 0 -50 0 minecraft:stone" }
+    - { on: server, action: command, command: "fill 0 -60 8 0 -50 8 minecraft:stone" }
+    - { on: server, action: command, command: "tp Alice 0.5 -49 0.5 0 30" }
+    - { on: server, action: command, command: "tp Bob 0.5 -49 8.5 180 -15" }
+    - { action: wait, seconds: 2 }
+  # Aliceを正面視点(F5×2)にする。fukurouがテストの前に一人称へ戻す
+  front-view:
+    - { on: Alice, action: press_key, key: F5 }
+    - { on: Alice, action: press_key, key: F5 }

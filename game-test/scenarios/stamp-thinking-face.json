@@ -20,6 +20,13 @@
 
     { "on": "Alice", "action": "screenshot", "name": "stamp-thinking-face" },
     { "on": "Bob", "action": "screenshot", "name": "stamp-thinking-face" },
+
+    { "action": "wait", "seconds": 6 },
+    { "on": "Alice", "action": "chat", "text": "/st :sleeping-face:" },
+    { "on": "server", "action": "wait_for_log", "pattern": "Alice issued server command: /st :sleeping-face:", "timeout": 10 },
+    { "action": "wait", "seconds": 1 },
+    { "on": "Alice", "action": "screenshot", "name": "stamp-sleeping-face" },
+    { "on": "Bob", "action": "screenshot", "name": "stamp-sleeping-face" },
     { "on": "Alice", "action": "assert_no_log", "pattern": "\\[CHAT\\].*(Unknown( or incomplete)? command|Stamp not found|do not have that stamp|cannot summon)" }
   ]
 }

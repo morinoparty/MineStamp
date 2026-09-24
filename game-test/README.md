@@ -4,7 +4,7 @@ MineStamp's in-game screenshot test runs on [fukurou](https://github.com/morinop
 
 This directory only holds MineStamp's scenarios:
 
-- `scenarios/stamp-thinking-face.json` — Alice switches to the front view (F5 twice) and runs `/st :thinking-face:`. Bob watches from across. Both take a screenshot.
+- `scenarios/stamp-thinking-face.json` — Alice switches to the front view (F5 twice) and runs `/st :thinking-face:`. Bob watches from across. Both take a screenshot. After the stamp cooldown, Alice sends `/st :sleeping-face:` and both take another screenshot.
 
 The workflow is `.github/workflows/game_test.yml`:
 

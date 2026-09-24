@@ -105,6 +105,8 @@ jobs:
       # URL はバケット名（secret）と同じ文字列を含むため、job output にすると GitHub に捨てられる。
       # アップロードできたかだけを渡し、URL は preview ジョブで組み立てる（preview.yml と同じ方法）
       uploaded: ${{ steps.ui.outputs.uploaded }}
+      # {"total", "passed", "failed", "error"} の JSON。PR コメントに件数を載せる
+      summary: ${{ steps.ui.outputs.summary }}
     steps:
       # fork からの PR には secret が渡らないため取得しない（fukurou/ui はアップロードを飛ばす）
       - name: Get S3 credentials from Bitwarden
@@ -129,7 +131,7 @@ jobs:
           s3-prefix: minestamp/${{ needs.build.outputs.sha }}/game-test
           public-base-url: https://moripa-ci.nikomaru.dev
 
-  # PR にビューアへのリンクをコメントする
+  # preview.yml が投稿したプレビューコメントの「In-game screenshots」の節を、結果とビューアへのリンクで置き換える
   preview:
     needs: [build, test, deploy]
     if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.deploy.outputs.uploaded == 'true' }}
@@ -137,21 +139,49 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      # preview.yml も同じ bot でコメントするため、目印の HTML コメントで自分のコメントを探して更新する
-      - name: Upsert the game-test comment
+      - name: Update the preview comment
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
+          # preview.yml のコメントは JAR 名に短縮 SHA を含むので、同じコミットのコメントを見分けられる
+          JAR_NAME: MineStamp-${{ needs.build.outputs.sha }}.jar
           FUKUROU_URL: https://moripa-ci.nikomaru.dev/minestamp/${{ needs.build.outputs.sha }}/game-test/index.html
           RESULT: ${{ needs.test.result }}
+          SUMMARY: ${{ needs.deploy.outputs.summary }}
         run: |
-          body="<!-- fukurou:game-test -->
-          ### 🦉 In-game screenshots (${RESULT})
-          ${FUKUROU_URL}"
-          id="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" \
-            --jq '.[] | select(.body | startswith("<!-- fukurou:game-test -->")) | .id' | tail -n 1)"
-          if [ -n "$id" ]; then
-            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" -f body="$body"
-          else
-            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "$body"
-          fi
+          python3 - <<'PY'
+          import json, os, re, subprocess, time
+
+          repo, pr = os.environ["GITHUB_REPOSITORY"], os.environ["PR"]
+          start, end = "<!-- fukurou:start -->", "<!-- fukurou:end -->"
+
+          def gh(*args):
+              return subprocess.run(["gh", *args], check=True, capture_output=True, text=True).stdout
+
+          # 節の本文: 全体の結果、件数、ビューアへのリンク
+          icon = {"success": "✅", "failure": "❌"}.get(os.environ["RESULT"], "⚠️")
+          counts = json.loads(os.environ.get("SUMMARY") or "{}")
+          detail = ", ".join(f"{counts[k]} {k}" for k in ("passed", "failed", "error") if counts.get(k))
+          section = f"{start}\n{icon} **{os.environ['RESULT']}**" + (f" ({detail})" if detail else "")
+          section += f" — [Open the viewer]({os.environ['FUKUROU_URL']})\n{end}"
+
+          def find_preview_comment():
+              comments = json.loads(gh("api", "--paginate", "--slurp", f"repos/{repo}/issues/{pr}/comments"))
+              matches = [c for page in comments for c in page
+                         if start in c["body"] and os.environ["JAR_NAME"] in c["body"]]
+              return matches[-1] if matches else None
+
+          # ゲームのテストの方が遅いので通常は既にあるが、プレビューがまだなら最大10分待つ
+          for _ in range(20):
+              comment = find_preview_comment()
+              if comment:
+                  body = re.sub(re.escape(start) + r".*?" + re.escape(end), lambda _: section, comment["body"], flags=re.S)
+                  gh("api", "-X", "PATCH", f"repos/{repo}/issues/comments/{comment['id']}", "-f", f"body={body}")
+                  print(f"Updated preview comment {comment['id']}")
+                  break
+              time.sleep(30)
+          else:
+              # プレビューコメントが見つからない場合は、単独のコメントとして投稿する
+              gh("pr", "comment", pr, "--repo", repo, "--body", f"### 🦉 In-game screenshots\n{section}")
+              print("Preview comment not found; posted a separate comment")
+          PY

@@ -102,7 +102,9 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     outputs:
-      fukurou_url: ${{ steps.ui.outputs.url }}
+      # URL はバケット名（secret）と同じ文字列を含むため、job output にすると GitHub に捨てられる。
+      # アップロードできたかだけを渡し、URL は preview ジョブで組み立てる（preview.yml と同じ方法）
+      uploaded: ${{ steps.ui.outputs.uploaded }}
     steps:
       # fork からの PR には secret が渡らないため取得しない（fukurou/ui はアップロードを飛ばす）
       - name: Get S3 credentials from Bitwarden
@@ -129,8 +131,8 @@ jobs:
 
   # PR にビューアへのリンクをコメントする
   preview:
-    needs: [test, deploy]
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.deploy.outputs.fukurou_url != '' }}
+    needs: [build, test, deploy]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.deploy.outputs.uploaded == 'true' }}
     runs-on: ubuntu-24.04
     permissions:
       pull-requests: write
@@ -140,7 +142,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-          FUKUROU_URL: ${{ needs.deploy.outputs.fukurou_url }}
+          FUKUROU_URL: https://moripa-ci.nikomaru.dev/minestamp/${{ needs.build.outputs.sha }}/game-test/index.html
           RESULT: ${{ needs.test.result }}
         run: |
           body="<!-- fukurou:game-test -->

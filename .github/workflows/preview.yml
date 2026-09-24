@@ -190,6 +190,29 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Download Gradle artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: gradle-artifacts
+          path: ./artifacts/gradle-artifacts
+
+      # コメントに載せる JAR のサイズを計算する
+      - name: Get JAR size
+        id: jar-size
+        run: |
+          # バイト数を読みやすい単位に変換する (1 MiB 以上は MB、それ未満は KB)
+          human_size() {
+            local bytes
+            bytes=$(stat -c %s "$1")
+            if [ "$bytes" -ge 1048576 ]; then
+              awk -v b="$bytes" 'BEGIN { printf "%.1f MB", b / 1048576 }'
+            else
+              awk -v b="$bytes" 'BEGIN { printf "%.1f KB", b / 1024 }'
+            fi
+          }
+          JARS=./artifacts/gradle-artifacts/jars
+          echo "plugin=$(human_size "$JARS/${{ env.PROJECT_NAME }}-${{ env.COMMIT_SHORT_SHA }}.jar")" >> $GITHUB_OUTPUT
+
       - name: Get limit time
         id: limit-time
         run: |
@@ -208,9 +231,9 @@ jobs:
 
           ### 📦 Preview JARs
           Available for 7 days (until $LIMIT_TIME)
-          | Artifact | Download |
-          |----------|----------|
-          | Plugin | [${{ env.PROJECT_NAME }}-${{ env.COMMIT_SHORT_SHA }}.jar]($JAR_BASE_URL/${{ env.PROJECT_NAME }}-${{ env.COMMIT_SHORT_SHA }}.jar) |
+          | Artifact | Download | Size |
+          |----------|----------|------|
+          | Plugin | [${{ env.PROJECT_NAME }}-${{ env.COMMIT_SHORT_SHA }}.jar]($JAR_BASE_URL/${{ env.PROJECT_NAME }}-${{ env.COMMIT_SHORT_SHA }}.jar) | ${{ steps.jar-size.outputs.plugin }} |
 
           > 📜 **Attestation** (SLSA provenance): [Verify on GitHub]($ATTESTATION_URL) or run \`gh attestation verify <jar-file> --owner morinoparty\`
 

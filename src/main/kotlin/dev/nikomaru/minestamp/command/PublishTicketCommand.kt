@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.command
 
 import com.auth0.jwt.JWT
@@ -17,10 +26,9 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.security.KeyPairGenerator
 
-
 @Command("minestamp")
 @Permission("minestamp.command.publish")
-class PublishTicketCommand: KoinComponent {
+class PublishTicketCommand : KoinComponent {
     val plugin: MineStamp by inject()
 
     @Command("generate keyPair")
@@ -49,13 +57,19 @@ class PublishTicketCommand: KoinComponent {
     @CommandDescription("Generate tickets for roulette.")
     @Permission("minestamp.command.publish.roulette")
     fun publishRandom(actor: Player) {
-        val rsaKey = getRSAKeyPair() ?: run {
-            actor.sendI18nRichMessage("minestamp.not-found-keyPair")
-            actor.sendI18nRichMessage("minestamp.need-generate-keyPair")
-            return
-        }
+        val rsaKey =
+            getRSAKeyPair() ?: run {
+                actor.sendI18nRichMessage("minestamp.not-found-keyPair")
+                actor.sendI18nRichMessage("minestamp.need-generate-keyPair")
+                return
+            }
         val algorithm = Algorithm.RSA256(rsaKey.second, rsaKey.first)
-        val jwt = JWT.create().withIssuer("minestamp").withClaim("type", "roulette").sign(algorithm)
+        val jwt =
+            JWT
+                .create()
+                .withIssuer("minestamp")
+                .withClaim("type", "roulette")
+                .sign(algorithm)
         val ticket = getRouletteTicket(jwt)
         actor.inventory.addItem(ticket)
     }
@@ -63,15 +77,18 @@ class PublishTicketCommand: KoinComponent {
     @Command("publish unique")
     @CommandDescription("Generate unique tickets.")
     @Permission("minestamp.command.publish.unique")
-    fun publishUnique(actor: Player, stamp: Stamp) {
-        val rsaKey = getRSAKeyPair() ?: run {
-            actor.sendI18nRichMessage("minestamp.not-found-keyPair")
-            actor.sendI18nRichMessage("minestamp.need-generate-keyPair")
-            return
-        }
+    fun publishUnique(
+        actor: Player,
+        stamp: Stamp
+    ) {
+        val rsaKey =
+            getRSAKeyPair() ?: run {
+                actor.sendI18nRichMessage("minestamp.not-found-keyPair")
+                actor.sendI18nRichMessage("minestamp.need-generate-keyPair")
+                return
+            }
         val algorithm = Algorithm.RSA256(rsaKey.second, rsaKey.first)
         val ticket = getUniqueTicket(algorithm, stamp)
         actor.inventory.addItem(ticket)
     }
-
 }

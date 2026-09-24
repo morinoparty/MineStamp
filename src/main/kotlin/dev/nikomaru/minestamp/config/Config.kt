@@ -1,10 +1,19 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.config
 
 import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.config.FileType
-import dev.nikomaru.minestamp.data.ImageListData
 import dev.nikomaru.minestamp.config.LocalConfig
 import dev.nikomaru.minestamp.config.PlayerDefaultEmojiConfigData
+import dev.nikomaru.minestamp.data.ImageListData
 import dev.nikomaru.minestamp.stamp.StampManager
 import dev.nikomaru.minestamp.utils.LangUtils
 import dev.nikomaru.minestamp.utils.Utils
@@ -30,7 +39,7 @@ import org.koin.core.context.loadKoinModules
 import org.koin.dsl.module
 import software.amazon.awssdk.core.sync.RequestBody
 
-object Config: KoinComponent {
+object Config : KoinComponent {
     val plugin: MineStamp by inject()
 
     suspend fun loadConfig() {
@@ -44,9 +53,11 @@ object Config: KoinComponent {
                 configFile.writeText(json.encodeToString(defaultEmojiConfig))
             }
             val localConfig = json.decodeFromString<LocalConfig>(configFile.readText())
-            loadKoinModules(module {
-                single { localConfig }
-            })
+            loadKoinModules(
+                module {
+                    single { localConfig }
+                }
+            )
             // リロードでS3設定が変わり得るため、キャッシュ済みクライアントを破棄する
             Utils.resetS3Client()
 
@@ -105,58 +116,69 @@ object Config: KoinComponent {
         }
         val randomConfig =
             sanitizeRandomConfig(json.decodeFromString<HashMap<String, Int>>(randomConfigFile.readText()))
-        val playerDefaultConfig = migratePlayerDefaultConfig(playerDefaultConfigFile.readText()) {
-            playerDefaultConfigFile.writeText(it)
-        }
-        loadKoinModules(module {
-            single { randomConfig }
-            single { playerDefaultConfig }
-        })
+        val playerDefaultConfig =
+            migratePlayerDefaultConfig(playerDefaultConfigFile.readText()) {
+                playerDefaultConfigFile.writeText(it)
+            }
+        loadKoinModules(
+            module {
+                single { randomConfig }
+                single { playerDefaultConfig }
+            }
+        )
     }
 
-    private suspend fun loadConfigForProxy() = coroutineScope {
-        val s3 = getS3Client()
-        val s3Config = get<LocalConfig>().s3Config ?: throw IllegalStateException("S3 config is not found")
+    private suspend fun loadConfigForProxy() =
+        coroutineScope {
+            val s3 = getS3Client()
+            val s3Config = get<LocalConfig>().s3Config ?: throw IllegalStateException("S3 config is not found")
 
-        // random.jsonとplayer-default.jsonは独立しているため並列に初期化・取得する
-        val randomConfigDeferred = async {
-            if (!s3.objectExists(s3Config.bucket, "random.json")) {
-                val defaultRandom = plugin.javaClass.getResourceAsStream("/default-random.json")
-                    ?: throw IllegalStateException("default-random.json is not found")
-                s3.putObject(
-                    { it.bucket(s3Config.bucket).key("random.json") },
-                    RequestBody.fromBytes(defaultRandom.use { stream -> stream.readAllBytes() })
-                )
-            }
-            sanitizeRandomConfig(
-                json.decodeFromString<HashMap<String, Int>>(
-                    s3.getObjectAsString(s3Config.bucket, "random.json")
-                )
+            // random.jsonとplayer-default.jsonは独立しているため並列に初期化・取得する
+            val randomConfigDeferred =
+                async {
+                    if (!s3.objectExists(s3Config.bucket, "random.json")) {
+                        val defaultRandom =
+                            plugin.javaClass.getResourceAsStream("/default-random.json")
+                                ?: throw IllegalStateException("default-random.json is not found")
+                        s3.putObject(
+                            { it.bucket(s3Config.bucket).key("random.json") },
+                            RequestBody.fromBytes(defaultRandom.use { stream -> stream.readAllBytes() })
+                        )
+                    }
+                    sanitizeRandomConfig(
+                        json.decodeFromString<HashMap<String, Int>>(
+                            s3.getObjectAsString(s3Config.bucket, "random.json")
+                        )
+                    )
+                }
+            val playerDefaultConfigDeferred =
+                async {
+                    if (!s3.objectExists(s3Config.bucket, "player-default.json")) {
+                        val defaultPlayerConfig = PlayerDefaultEmojiConfigData()
+                        s3.putObject(
+                            { it.bucket(s3Config.bucket).key("player-default.json") },
+                            RequestBody.fromString(json.encodeToString(defaultPlayerConfig))
+                        )
+                    }
+                    migratePlayerDefaultConfig(
+                        s3.getObjectAsString(s3Config.bucket, "player-default.json")
+                    ) { migratedText ->
+                        s3.putObject(
+                            { it.bucket(s3Config.bucket).key("player-default.json") },
+                            RequestBody.fromString(migratedText)
+                        )
+                    }
+                }
+
+            val randomConfig = randomConfigDeferred.await()
+            val playerDefaultConfig = playerDefaultConfigDeferred.await()
+            loadKoinModules(
+                module {
+                    single { randomConfig }
+                    single { playerDefaultConfig }
+                }
             )
         }
-        val playerDefaultConfigDeferred = async {
-            if (!s3.objectExists(s3Config.bucket, "player-default.json")) {
-                val defaultPlayerConfig = PlayerDefaultEmojiConfigData()
-                s3.putObject(
-                    { it.bucket(s3Config.bucket).key("player-default.json") },
-                    RequestBody.fromString(json.encodeToString(defaultPlayerConfig))
-                )
-            }
-            migratePlayerDefaultConfig(s3.getObjectAsString(s3Config.bucket, "player-default.json")) { migratedText ->
-                s3.putObject(
-                    { it.bucket(s3Config.bucket).key("player-default.json") },
-                    RequestBody.fromString(migratedText)
-                )
-            }
-        }
-
-        val randomConfig = randomConfigDeferred.await()
-        val playerDefaultConfig = playerDefaultConfigDeferred.await()
-        loadKoinModules(module {
-            single { randomConfig }
-            single { playerDefaultConfig }
-        })
-    }
 
     // 既存サーバーのrandom.jsonにはフォント更新で描画できなくなった絵文字が残り得るため、
     // 抽選対象からメモリ上で除外する（ファイルは管理者のデータなので書き換えない）
@@ -174,7 +196,8 @@ object Config: KoinComponent {
     // 旧フォーマットのplayer-default.json（描画パラメータを含む）を検出したら、
     // パラメータをconfig.jsonのstampセクションへ移し、player-default.jsonをdefaultEmojiのみに書き換える
     private fun migratePlayerDefaultConfig(
-        rawText: String, persist: (String) -> Unit
+        rawText: String,
+        persist: (String) -> Unit
     ): PlayerDefaultEmojiConfigData {
         val data = json.decodeFromString<PlayerDefaultEmojiConfigData>(rawText)
         val jsonObject = json.parseToJsonElement(rawText).jsonObject
@@ -182,13 +205,14 @@ object Config: KoinComponent {
         if (legacyKeys.none { it in jsonObject }) return data
         val localConfig = get<LocalConfig>()
         val current = localConfig.stamp
-        val migrated = StampRenderConfig(
-            second = jsonObject["second"]?.jsonPrimitive?.int ?: current.second,
-            size = jsonObject["size"]?.jsonPrimitive?.double ?: current.size,
-            particleSize = jsonObject["particleSize"]?.jsonPrimitive?.double ?: current.particleSize,
-            accuracy = jsonObject["accuracy"]?.jsonPrimitive?.int ?: current.accuracy,
-            waitSecond = jsonObject["waitSecond"]?.jsonPrimitive?.double ?: current.waitSecond,
-        )
+        val migrated =
+            StampRenderConfig(
+                second = jsonObject["second"]?.jsonPrimitive?.int ?: current.second,
+                size = jsonObject["size"]?.jsonPrimitive?.double ?: current.size,
+                particleSize = jsonObject["particleSize"]?.jsonPrimitive?.double ?: current.particleSize,
+                accuracy = jsonObject["accuracy"]?.jsonPrimitive?.int ?: current.accuracy,
+                waitSecond = jsonObject["waitSecond"]?.jsonPrimitive?.double ?: current.waitSecond
+            )
         val newConfig = localConfig.copy(stamp = migrated)
         plugin.dataFolder.resolve("config.json").writeText(json.encodeToString(newConfig))
         loadKoinModules(module { single { newConfig } })
@@ -203,12 +227,13 @@ object Config: KoinComponent {
      */
     fun purgeRandomConfigFile(): List<String> {
         val localConfig = get<LocalConfig>()
-        val raw = if (localConfig.type == FileType.LOCAL) {
-            plugin.dataFolder.resolve("random.json").readText()
-        } else {
-            val s3Config = localConfig.s3Config ?: throw IllegalStateException("S3 config is not found")
-            getS3Client().getObjectAsString(s3Config.bucket, "random.json")
-        }
+        val raw =
+            if (localConfig.type == FileType.LOCAL) {
+                plugin.dataFolder.resolve("random.json").readText()
+            } else {
+                val s3Config = localConfig.s3Config ?: throw IllegalStateException("S3 config is not found")
+                getS3Client().getObjectAsString(s3Config.bucket, "random.json")
+            }
         val randomConfig = json.decodeFromString<HashMap<String, Int>>(raw)
         val removed = randomConfig.keys.filter { StampManager.isUnrenderableEmoji(it) }.sorted()
         if (removed.isEmpty()) return emptyList()
@@ -244,8 +269,9 @@ object Config: KoinComponent {
             val s3Config = get<LocalConfig>().s3Config!!
             if (!s3Client.objectExists(s3Config.bucket, "image/test.jpg")) {
                 s3Client.putObject({ it.bucket(s3Config.bucket).key("image/") }, RequestBody.empty())
-                val inputStream = plugin.javaClass.classLoader.getResourceAsStream("test.jpg")
-                    ?: throw IllegalStateException("test.jpg is not found")
+                val inputStream =
+                    plugin.javaClass.classLoader.getResourceAsStream("test.jpg")
+                        ?: throw IllegalStateException("test.jpg is not found")
                 s3Client.putObject(
                     { it.bucket(s3Config.bucket).key("image/test.jpg") },
                     RequestBody.fromBytes(inputStream.use { stream -> stream.readAllBytes() })
@@ -258,16 +284,25 @@ object Config: KoinComponent {
     // 以前はplugin.launch（メインスレッド）でS3のブロッキングIOを行っていた
     private fun loadImages() {
         val localConfig = get<LocalConfig>()
-        val imageList = if (localConfig.type == FileType.LOCAL) {
-            plugin.dataFolder.resolve("image").listFiles()?.map { it.name } ?: emptyList()
-        } else {
-            val s3Client = getS3Client()
-            val s3Config = localConfig.s3Config ?: throw IllegalStateException("S3 config is not found")
-            s3Client.listObjectsV2Paginator { it.bucket(s3Config.bucket).prefix("image/") }
-                .contents().map { it.key().removePrefix("image/") }.filter { it.isNotEmpty() }
-        }
-        loadKoinModules(module {
-            single { ImageListData(imageList) }
-        })
+        val imageList =
+            if (localConfig.type == FileType.LOCAL) {
+                plugin.dataFolder
+                    .resolve("image")
+                    .listFiles()
+                    ?.map { it.name } ?: emptyList()
+            } else {
+                val s3Client = getS3Client()
+                val s3Config = localConfig.s3Config ?: throw IllegalStateException("S3 config is not found")
+                s3Client
+                    .listObjectsV2Paginator { it.bucket(s3Config.bucket).prefix("image/") }
+                    .contents()
+                    .map { it.key().removePrefix("image/") }
+                    .filter { it.isNotEmpty() }
+            }
+        loadKoinModules(
+            module {
+                single { ImageListData(imageList) }
+            }
+        )
     }
 }

@@ -1,0 +1,37 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  docs:
+    dir: docs
+    cmds:
+      - pnpm install
+      - pnpm dev
+    silent: true
+  format:
+    cmds:
+      - ./gradlew spotlessApply ktlintFormat
+    silent: true
+  build:
+    cmds:
+      - ./gradlew clean build -x test
+    silent: true
+  run:
+    cmds:
+      - ./gradlew clean runServer
+    silent: true
+  run:clean:
+    cmds:
+      - rm -rf ./run/*/plugins/*
+      - rm -rf ./run/*/**/session.lock
+    silent: true
+  check:
+    cmds:
+      - task format
+      - task build
+    silent: false
+  test:
+    cmds:
+      - ./gradlew clean test
+    silent: true

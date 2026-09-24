@@ -1,7 +1,15 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.utils
 
 import dev.nikomaru.minestamp.config.LocalConfig
-import java.net.URI
 import kotlinx.serialization.json.Json
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.koin.core.component.KoinComponent
@@ -14,15 +22,16 @@ import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import software.amazon.awssdk.services.s3.model.S3Exception
+import java.net.URI
 
-
-object Utils: KoinComponent {
-    val json = Json {
-        prettyPrint = true
-        isLenient = true
-        encodeDefaults = true
-        ignoreUnknownKeys = true
-    }
+object Utils : KoinComponent {
+    val json =
+        Json {
+            prettyPrint = true
+            isLenient = true
+            encodeDefaults = true
+            ignoreUnknownKeys = true
+        }
     val mm = MiniMessage.miniMessage()
 
     // S3Clientはコネクションプールを持つため、呼び出しごとに生成せずキャッシュする
@@ -49,7 +58,8 @@ object Utils: KoinComponent {
         val config = get<LocalConfig>()
         val s3Config = config.s3Config ?: throw IllegalStateException("S3 config is not found")
         val credential = AwsBasicCredentials.create(s3Config.accessKey, s3Config.secretKey)
-        return S3Client.builder()
+        return S3Client
+            .builder()
             .endpointOverride(URI.create(s3Config.url))
             .region(Region.US_EAST_1)
             .credentialsProvider(StaticCredentialsProvider.create(credential))
@@ -57,23 +67,30 @@ object Utils: KoinComponent {
             .build()
     }
 
-    fun S3Client.bucketExists(bucket: String): Boolean = try {
-        headBucket { it.bucket(bucket) }
-        true
-    } catch (e: NoSuchBucketException) {
-        false
-    }
+    fun S3Client.bucketExists(bucket: String): Boolean =
+        try {
+            headBucket { it.bucket(bucket) }
+            true
+        } catch (e: NoSuchBucketException) {
+            false
+        }
 
-    fun S3Client.objectExists(bucket: String, key: String): Boolean = try {
-        headObject { it.bucket(bucket).key(key) }
-        true
-    } catch (e: NoSuchKeyException) {
-        false
-    } catch (e: SdkException) {
-        // MinIO等の互換実装は404をNoSuchKey以外で返すことがある
-        if (e is S3Exception && e.statusCode() == 404) false else throw e
-    }
+    fun S3Client.objectExists(
+        bucket: String,
+        key: String
+    ): Boolean =
+        try {
+            headObject { it.bucket(bucket).key(key) }
+            true
+        } catch (e: NoSuchKeyException) {
+            false
+        } catch (e: SdkException) {
+            // MinIO等の互換実装は404をNoSuchKey以外で返すことがある
+            if (e is S3Exception && e.statusCode() == 404) false else throw e
+        }
 
-    fun S3Client.getObjectAsString(bucket: String, key: String): String =
-        getObjectAsBytes { it.bucket(bucket).key(key) }.asUtf8String()
+    fun S3Client.getObjectAsString(
+        bucket: String,
+        key: String
+    ): String = getObjectAsBytes { it.bucket(bucket).key(key) }.asUtf8String()
 }

@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.api
 
 import dev.nikomaru.minestamp.MineStamp
@@ -14,18 +23,20 @@ import party.morino.mineauth.api.MineAuthApi
  * `server.pluginManager.getPlugin("MineAuth") != null` を確認してから
  * このクラスをロードすること。
  */
-class MineAuthIntegration(private val plugin: MineStamp) {
-
+class MineAuthIntegration(
+    private val plugin: MineStamp
+) {
     /**
      * MineAuthにスタンプ関連のHTTPエンドポイントを登録する
      * 登録されたエンドポイントは /api/v1/plugins/minestamp 配下で利用可能
      */
     fun register() {
         // MineAuthはロード済みだがサービス登録前という狭い窓のみnullになる
-        val api = MineAuthApi.get(plugin.server) ?: run {
-            plugin.logger.warning("MineAuth service is not registered yet - HTTP endpoints disabled")
-            return
-        }
+        val api =
+            MineAuthApi.get(plugin.server) ?: run {
+                plugin.logger.warning("MineAuth service is not registered yet - HTTP endpoints disabled")
+                return
+            }
 
         try {
             val registration = api.register(plugin, "minestamp", StampHandler())

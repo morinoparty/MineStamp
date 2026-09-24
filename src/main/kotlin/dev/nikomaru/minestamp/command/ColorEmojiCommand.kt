@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.command
 
 import com.comphenix.protocol.PacketType
@@ -27,14 +36,13 @@ import org.incendo.cloud.annotations.Default
 import org.incendo.cloud.annotations.Permission
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
-
 import java.awt.image.BufferedImage
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.cos
 import kotlin.math.sin
 
-class ColorEmojiCommand: KoinComponent {
+class ColorEmojiCommand : KoinComponent {
     // コルーチンから並行アクセスされるため並行コレクションを使う
     private val summonCooldown: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
@@ -42,25 +50,31 @@ class ColorEmojiCommand: KoinComponent {
     @CommandDescription("advanced command")
     @Permission("minestamp.command.advance")
     suspend fun colorEmoji(
-        sender: CommandSender, @Argument("stamp") stamp: Stamp,
+        sender: CommandSender,
+        @Argument("stamp") stamp: Stamp,
         @Argument("time") @Range(min = "1", max = "10") @Default("3") time: Int,
         @Argument("size") @Range(min = "1.0", max = "20.0") @Default("1.5") size: Double,
         @Argument("particleSize") @Range(min = "0.01", max = "4.0") @Default("1.0") particleSize: Double,
-        @Argument("accuracy") @Range(min = "1", max = "128") @Default("32") accuracy: Int,
+        @Argument("accuracy") @Range(min = "1", max = "128") @Default("32") accuracy: Int
     ) {
         if (sender !is Player) {
             sender.sendI18nRichMessage("minestamp.only-execute-from-player")
             return
         }
-        val config = get<LocalConfig>().stamp.copy(
-            second = time, size = size, particleSize = particleSize, accuracy = accuracy
-        )
+        val config =
+            get<LocalConfig>().stamp.copy(
+                second = time,
+                size = size,
+                particleSize = particleSize,
+                accuracy = accuracy
+            )
         summonEmoji(sender, stamp, config)
     }
 
     @Command("stamp|st <stamp>")
     suspend fun summonEmoji(
-        sender: CommandSender, @Argument("stamp") stamp: Stamp,
+        sender: CommandSender,
+        @Argument("stamp") stamp: Stamp
     ) {
         if (sender !is Player) {
             sender.sendI18nRichMessage("minestamp.only-execute-from-player")
@@ -76,7 +90,9 @@ class ColorEmojiCommand: KoinComponent {
     }
 
     private suspend fun summonEmoji(
-        sender: Player, stamp: Stamp, config: StampRenderConfig
+        sender: Player,
+        stamp: Stamp,
+        config: StampRenderConfig
     ) {
         val waitSecond = config.waitSecond
         if (!summonCooldown.add(sender.uniqueId)) {
@@ -108,20 +124,28 @@ class ColorEmojiCommand: KoinComponent {
         }
     }
 
-    private data class ParticlePixel(val x: Int, val y: Int, val rgb: Int)
+    private data class ParticlePixel(
+        val x: Int,
+        val y: Int,
+        val rgb: Int
+    )
 
     private fun buildParticlePackets(
-        image: BufferedImage, config: StampRenderConfig, location: Location, pm: ProtocolManager
+        image: BufferedImage,
+        config: StampRenderConfig,
+        location: Location,
+        pm: ProtocolManager
     ): List<PacketContainer> {
         val stride = (image.width / config.accuracy).coerceAtLeast(1)
-        val pixels = buildList {
-            for (x in 0 until image.width step stride) {
-                for (y in 0 until image.height step stride) {
-                    val rgb = image.getRGB(x, y)
-                    if (rgb != 0) add(ParticlePixel(x, y, rgb))
+        val pixels =
+            buildList {
+                for (x in 0 until image.width step stride) {
+                    for (y in 0 until image.height step stride) {
+                        val rgb = image.getRGB(x, y)
+                        if (rgb != 0) add(ParticlePixel(x, y, rgb))
+                    }
                 }
             }
-        }
         if (pixels.isEmpty()) return emptyList()
 
         val xMin = pixels.minOf { it.x }
@@ -142,18 +166,28 @@ class ColorEmojiCommand: KoinComponent {
     }
 
     private fun createParticlePacket(
-        color: Color, particleSize: Float, location: Location, x: Double, y: Double, pm: ProtocolManager
+        color: Color,
+        particleSize: Float,
+        location: Location,
+        x: Double,
+        y: Double,
+        pm: ProtocolManager
     ): PacketContainer {
         val packet = pm.createPacket(PacketType.Play.Server.WORLD_PARTICLES)
         packet.newParticles.write(
-            0, WrappedParticle.create(
-                Particle.DUST, Particle.DustOptions(color, particleSize)
+            0,
+            WrappedParticle.create(
+                Particle.DUST,
+                Particle.DustOptions(color, particleSize)
             )
         )
         val absX = location.x + (x * cos(-location.yaw.toDouble() / 180 * Math.PI))
         val absZ = location.z + (x * sin(location.yaw.toDouble() / 180 * Math.PI))
         val absY = location.y + y + 2
-        packet.doubles.write(0, absX).write(1, absY).write(2, absZ)
+        packet.doubles
+            .write(0, absX)
+            .write(1, absY)
+            .write(2, absZ)
         return packet
     }
 }

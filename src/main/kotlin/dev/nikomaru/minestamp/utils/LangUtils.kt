@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.utils
 
 import dev.nikomaru.minestamp.MineStamp
@@ -21,14 +30,17 @@ import java.util.Properties
  * Component.translatableは送信時に受信者のロケールで解決されるため、
  * プレイヤーごとの言語で表示される。引数は翻訳文字列側の<arg:0>タグで参照する。
  */
-object LangUtils: KoinComponent {
+object LangUtils : KoinComponent {
     val plugin: MineStamp by inject()
 
     private val bundledLocales = listOf("ja_JP", "en_US")
     private var store: MiniMessageTranslationStore? = null
     private var defaultLocale: Locale = Locale.US
 
-    fun CommandSender.sendI18nRichMessage(key: String, vararg args: Any) {
+    fun CommandSender.sendI18nRichMessage(
+        key: String,
+        vararg args: Any
+    ) {
         sendMessage(Component.translatable(key, args.map { it.toComponent() }))
     }
 
@@ -36,8 +48,10 @@ object LangUtils: KoinComponent {
      * アイテム名・loreなど、クライアント側で翻訳されない場所向けに
      * サーバー既定ロケールで解決済みのComponentを返す。
      */
-    fun i18nComponent(key: String, vararg args: Any): Component =
-        GlobalTranslator.render(Component.translatable(key, args.map { it.toComponent() }), defaultLocale)
+    fun i18nComponent(
+        key: String,
+        vararg args: Any
+    ): Component = GlobalTranslator.render(Component.translatable(key, args.map { it.toComponent() }), defaultLocale)
 
     private fun Any.toComponent(): Component =
         if (this is ComponentLike) this.asComponent() else Component.text(this.toString())
@@ -55,10 +69,11 @@ object LangUtils: KoinComponent {
 
         val loaded = mutableListOf<String>()
         langDir.listFiles()?.filter { it.extension == "properties" }?.forEach { file ->
-            val locale = Translator.parseLocale(file.nameWithoutExtension) ?: run {
-                plugin.logger.warning("Cannot parse locale from lang file ${file.name}. Skipping.")
-                return@forEach
-            }
+            val locale =
+                Translator.parseLocale(file.nameWithoutExtension) ?: run {
+                    plugin.logger.warning("Cannot parse locale from lang file ${file.name}. Skipping.")
+                    return@forEach
+                }
             val properties = Properties()
             file.inputStream().use { properties.load(it.reader(Charsets.UTF_8)) }
             properties.forEach { (k, v) -> newStore.register(k.toString(), locale, v.toString()) }

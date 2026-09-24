@@ -1,3 +1,12 @@
+/*
+ * Written in 2023-2026 by Nikomaru <nikomaru@nikomaru.dev>
+ *
+ * To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.This software is distributed without any warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication along with this software.
+ * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
 package dev.nikomaru.minestamp.utils
 
 import java.awt.image.BufferedImage
@@ -17,9 +26,12 @@ import javax.imageio.ImageIO
  *   selector) is treated as optional on both the input and the ligature definitions.
  * - CBLC IndexSubTable format 1 / 2 / 3, CBDT glyph format 17 / 18 / 19
  */
-class FluentEmojiFont(private val data: ByteArray) {
+class FluentEmojiFont(
+    private val data: ByteArray
+) {
     private val tables = HashMap<String, Pair<Int, Int>>() // tag -> (offset, length)
     private val cmap = HashMap<Int, Int>() // codepoint -> glyph id
+
     // first glyph -> ligatures (component glyphs after the first, ligature glyph), longest first
     private val ligatures = HashMap<Int, List<Pair<IntArray, Int>>>()
     private var strikeArrayOffset = 0
@@ -37,8 +49,11 @@ class FluentEmojiFont(private val data: ByteArray) {
     }
 
     private fun u8(offset: Int): Int = data[offset].toInt() and 0xFF
+
     private fun u16(offset: Int): Int = (u8(offset) shl 8) or u8(offset + 1)
+
     private fun s16(offset: Int): Int = u16(offset).toShort().toInt()
+
     private fun u32(offset: Int): Int = (u16(offset) shl 16) or u16(offset + 2)
 
     private fun parseTableDirectory() {
@@ -62,13 +77,14 @@ class FluentEmojiFont(private val data: ByteArray) {
             val offset = base + u32(base + 8 + 8 * i)
             val format = u16(offset)
             if (format != 4 && format != 12) continue
-            val score = when {
-                platformId == 3 && encodingId == 10 -> 3
-                platformId == 0 && (encodingId == 4 || encodingId == 6) -> 3
-                platformId == 3 && encodingId == 1 -> 2
-                platformId == 0 -> 2
-                else -> 0
-            }
+            val score =
+                when {
+                    platformId == 3 && encodingId == 10 -> 3
+                    platformId == 0 && (encodingId == 4 || encodingId == 6) -> 3
+                    platformId == 3 && encodingId == 1 -> 2
+                    platformId == 0 -> 2
+                    else -> 0
+                }
             if (score > bestScore) {
                 bestScore = score
                 bestOffset = offset
@@ -101,13 +117,14 @@ class FluentEmojiFont(private val data: ByteArray) {
                 val delta = s16(deltaBase + 2 * i)
                 val rangeOffset = u16(rangeOffsetBase + 2 * i)
                 for (cp in startCode..minOf(endCode, 0xFFFE)) {
-                    val glyph = if (rangeOffset == 0) {
-                        (cp + delta) and 0xFFFF
-                    } else {
-                        val address = rangeOffsetBase + 2 * i + rangeOffset + 2 * (cp - startCode)
-                        val g = u16(address)
-                        if (g == 0) 0 else (g + delta) and 0xFFFF
-                    }
+                    val glyph =
+                        if (rangeOffset == 0) {
+                            (cp + delta) and 0xFFFF
+                        } else {
+                            val address = rangeOffsetBase + 2 * i + rangeOffset + 2 * (cp - startCode)
+                            val g = u16(address)
+                            if (g == 0) 0 else (g + delta) and 0xFFFF
+                        }
                     if (glyph != 0) cmap[cp] = glyph
                 }
             }
@@ -137,14 +154,15 @@ class FluentEmojiFont(private val data: ByteArray) {
             }
         }
         for ((first, map) in collected) {
-            ligatures[first] = map.entries
-                .map { (components, ligature) -> components.toIntArray() to ligature }
-                .sortedByDescending { it.first.size }
+            ligatures[first] =
+                map.entries
+                    .map { (components, ligature) -> components.toIntArray() to ligature }
+                    .sortedByDescending { it.first.size }
         }
     }
 
-    private fun coverageGlyphs(offset: Int): List<Int> {
-        return when (u16(offset)) {
+    private fun coverageGlyphs(offset: Int): List<Int> =
+        when (u16(offset)) {
             1 -> {
                 val count = u16(offset + 2)
                 (0 until count).map { u16(offset + 4 + 2 * it) }
@@ -163,12 +181,11 @@ class FluentEmojiFont(private val data: ByteArray) {
 
             else -> emptyList()
         }
-    }
 
     private fun parseLigatureSubst(
         offset: Int,
         fe0fGlyph: Int?,
-        collected: HashMap<Int, LinkedHashMap<List<Int>, Int>>,
+        collected: HashMap<Int, LinkedHashMap<List<Int>, Int>>
     ) {
         val coverage = coverageGlyphs(offset + u16(offset + 2))
         val ligatureSetCount = u16(offset + 4)
@@ -181,9 +198,10 @@ class FluentEmojiFont(private val data: ByteArray) {
                 val ligatureOffset = setOffset + u16(setOffset + 2 + 2 * j)
                 val ligatureGlyph = u16(ligatureOffset)
                 val componentCount = u16(ligatureOffset + 2)
-                val components = (0 until componentCount - 1)
-                    .map { u16(ligatureOffset + 4 + 2 * it) }
-                    .filter { it != fe0fGlyph }
+                val components =
+                    (0 until componentCount - 1)
+                        .map { u16(ligatureOffset + 4 + 2 * it) }
+                        .filter { it != fe0fGlyph }
                 map.putIfAbsent(components, ligatureGlyph)
             }
         }
@@ -259,24 +277,26 @@ class FluentEmojiFont(private val data: ByteArray) {
             val imageFormat = u16(subOffset + 2)
             val imageDataOffset = u32(subOffset + 4)
             val index = glyphId - firstGlyph
-            val (dataStart, dataEnd) = when (indexFormat) {
-                1 -> u32(subOffset + 8 + 4 * index) to u32(subOffset + 12 + 4 * index)
-                2 -> {
-                    val imageSize = u32(subOffset + 8)
-                    imageSize * index to imageSize * (index + 1)
-                }
+            val (dataStart, dataEnd) =
+                when (indexFormat) {
+                    1 -> u32(subOffset + 8 + 4 * index) to u32(subOffset + 12 + 4 * index)
+                    2 -> {
+                        val imageSize = u32(subOffset + 8)
+                        imageSize * index to imageSize * (index + 1)
+                    }
 
-                3 -> u16(subOffset + 8 + 2 * index) to u16(subOffset + 10 + 2 * index)
-                else -> return null
-            }
+                    3 -> u16(subOffset + 8 + 2 * index) to u16(subOffset + 10 + 2 * index)
+                    else -> return null
+                }
             if (dataEnd <= dataStart) return null
             val glyphOffset = cbdtBase + imageDataOffset + dataStart
-            val (pngOffset, pngLength) = when (imageFormat) {
-                17 -> glyphOffset + 9 to u32(glyphOffset + 5) // smallGlyphMetrics(5) + dataLen(4)
-                18 -> glyphOffset + 12 to u32(glyphOffset + 8) // bigGlyphMetrics(8) + dataLen(4)
-                19 -> glyphOffset + 4 to u32(glyphOffset) // dataLen(4)
-                else -> return null
-            }
+            val (pngOffset, pngLength) =
+                when (imageFormat) {
+                    17 -> glyphOffset + 9 to u32(glyphOffset + 5) // smallGlyphMetrics(5) + dataLen(4)
+                    18 -> glyphOffset + 12 to u32(glyphOffset + 8) // bigGlyphMetrics(8) + dataLen(4)
+                    19 -> glyphOffset + 4 to u32(glyphOffset) // dataLen(4)
+                    else -> return null
+                }
             if (pngLength <= 0 || pngOffset.toLong() + pngLength.toLong() > data.size) return null
             return data.copyOfRange(pngOffset, pngOffset + pngLength)
         }

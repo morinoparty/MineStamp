@@ -26,10 +26,6 @@ import dev.nikomaru.minestamp.listener.TicketInteractEvent
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.player.LocalPlayerStampManager
 import dev.nikomaru.minestamp.player.S3PlayerStampManager
-import dev.nikomaru.minestamp.utils.FluentEmojiFont
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
@@ -60,32 +56,15 @@ open class MineStamp :
         if (!plugin.dataFolder.exists()) {
             plugin.dataFolder.mkdir()
         }
-        // フォントロードは重いIOのため、コマンド登録と並行して実行する
-        val emojiProperties = Properties()
-        coroutineScope {
-            val emojiFontDeferred =
-                async(Dispatchers.IO) {
-                    val br = plugin.javaClass.classLoader.getResourceAsStream("emoji.properties")
-                    emojiProperties.load(br)
-                    val fontData =
-                        plugin.javaClass.classLoader
-                            .getResourceAsStream("FluentEmojiColor-CBDT.ttf")
-                            ?.use { it.readBytes() }
-                            ?: error("FluentEmojiColor-CBDT.ttf is not found in resources.")
-                    FluentEmojiFont(fontData)
-                }
-            logger.info("command setting")
-            setCommand()
-
-            // sanitizeRandomConfig（loadConfig内）がフォントに依存するため、Koin登録を待ってから先へ進む
-            val emojiFont = emojiFontDeferred.await()
-            loadKoinModules(
-                module {
-                    single { emojiProperties }
-                    single { emojiFont }
-                }
-            )
-        }
+        val emojiProperties =
+            Properties().apply {
+                plugin.javaClass.classLoader
+                    .getResourceAsStream("emoji.properties")
+                    .use { load(it) }
+            }
+        loadKoinModules(module { single { emojiProperties } })
+        logger.info("command setting")
+        setCommand()
         logger.info("config setting")
         Config.loadConfig()
         logger.info("stamp manager setting")

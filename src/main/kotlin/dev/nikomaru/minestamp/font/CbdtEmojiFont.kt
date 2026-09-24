@@ -7,14 +7,14 @@
  * If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-package dev.nikomaru.minestamp.utils
+package dev.nikomaru.minestamp.font
 
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import javax.imageio.ImageIO
 
 /**
- * Fluent Emoji (CBDT/CBLC color bitmap) font parser.
+ * CBDT/CBLC color bitmap emoji font parser (e.g. Fluent Emoji, Noto Color Emoji).
  *
  * Java AWT cannot render color emoji fonts, so this class parses the sfnt binary
  * directly and extracts the embedded PNG bytes from the CBDT table.
@@ -26,9 +26,9 @@ import javax.imageio.ImageIO
  *   selector) is treated as optional on both the input and the ligature definitions.
  * - CBLC IndexSubTable format 1 / 2 / 3, CBDT glyph format 17 / 18 / 19
  */
-class FluentEmojiFont(
+class CbdtEmojiFont(
     private val data: ByteArray
-) {
+) : EmojiFont {
     private val tables = HashMap<String, Pair<Int, Int>>() // tag -> (offset, length)
     private val cmap = HashMap<Int, Int>() // codepoint -> glyph id
 
@@ -304,7 +304,7 @@ class FluentEmojiFont(
     }
 
     /** Returns true if the codepoint sequence resolves to a glyph with an embedded bitmap. PNGのデコードを行わないため一覧の事前フィルタに使える。 */
-    fun hasGlyph(unicodeSpec: String): Boolean {
+    override fun hasGlyph(unicodeSpec: String): Boolean {
         val codePoints = unicodeSpec.trim().split(" ").mapNotNull { it.toIntOrNull(16) }
         if (codePoints.isEmpty()) return false
         val glyphId = resolveGlyph(codePoints) ?: return false
@@ -324,7 +324,7 @@ class FluentEmojiFont(
     }
 
     /** [unicodeSpec] is a space-separated hex codepoint list, e.g. "1F468 1F3FB 200D 1F373". */
-    fun getImage(unicodeSpec: String): BufferedImage? {
+    override fun getImage(unicodeSpec: String): BufferedImage? {
         val codePoints = unicodeSpec.trim().split(" ").mapNotNull { it.toIntOrNull(16) }
         if (codePoints.isEmpty()) return null
         return getImage(codePoints)

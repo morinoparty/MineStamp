@@ -12,7 +12,7 @@ package dev.nikomaru.minestamp.stamp
 import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.config.FileType
 import dev.nikomaru.minestamp.config.LocalConfig
-import dev.nikomaru.minestamp.utils.FluentEmojiFont
+import dev.nikomaru.minestamp.font.EmojiFont
 import dev.nikomaru.minestamp.utils.Utils.objectExists
 import org.apache.commons.math3.distribution.EnumeratedDistribution
 import org.koin.core.component.KoinComponent
@@ -60,7 +60,7 @@ object StampManager : KoinComponent {
     fun isUnrenderableEmoji(code: String): Boolean {
         if (!code.startsWith(":")) return false
         val spec = emojiProperties.getProperty(code) ?: return true
-        return !get<FluentEmojiFont>().hasGlyph(spec)
+        return !get<EmojiFont>().hasGlyph(spec)
     }
 
     fun getRandomStamp(): Stamp? {

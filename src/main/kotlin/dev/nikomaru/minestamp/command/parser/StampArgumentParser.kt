@@ -11,11 +11,11 @@ package dev.nikomaru.minestamp.command.parser
 
 import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.data.ImageListData
+import dev.nikomaru.minestamp.font.EmojiFont
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.EmojiStamp
 import dev.nikomaru.minestamp.stamp.Stamp
 import dev.nikomaru.minestamp.stamp.StampManager
-import dev.nikomaru.minestamp.utils.FluentEmojiFont
 import org.bukkit.command.CommandSender
 import org.incendo.cloud.context.CommandContext
 import org.incendo.cloud.context.CommandInput
@@ -35,14 +35,22 @@ class StampArgumentParser<CommandSender> :
     KoinComponent {
     val plugin: MineStamp by inject()
     private val emojiProperties: Properties by inject()
-    private val emojiFont: FluentEmojiFont by inject()
 
-    // フォントで実際に描画できる絵文字のみをタブ補完に出す。初回参照時に一度だけ計算する
-    private val renderableEmojiSuggestions: List<String> by lazy {
-        emojiProperties
-            .stringPropertyNames()
-            .filter { key -> emojiFont.hasGlyph(emojiProperties.getProperty(key) ?: "") }
-            .map { key -> toEmojiChar(emojiProperties.getProperty(key)) + key }
+    // リロードでフォントが差し替わり得るため、補完候補は計算に使ったフォントと組で保持する
+    @Volatile
+    private var suggestionCache: Pair<EmojiFont, List<String>>? = null
+
+    // フォントで実際に描画できる絵文字のみをタブ補完に出す。フォントが変わらない限り再計算しない
+    private fun renderableEmojiSuggestions(): List<String> {
+        val emojiFont = get<EmojiFont>()
+        suggestionCache?.let { (cachedFont, suggestions) -> if (cachedFont === emojiFont) return suggestions }
+        val suggestions =
+            emojiProperties
+                .stringPropertyNames()
+                .filter { key -> emojiFont.hasGlyph(emojiProperties.getProperty(key) ?: "") }
+                .map { key -> toEmojiChar(emojiProperties.getProperty(key)) + key }
+        suggestionCache = emojiFont to suggestions
+        return suggestions
     }
 
     companion object {
@@ -84,7 +92,7 @@ class StampArgumentParser<CommandSender> :
         val candidates: List<String> =
             if (sender.hasPermission("minestamp.advanced")) {
                 val images = get<ImageListData>().list.map { "!$it" }
-                images + renderableEmojiSuggestions
+                images + renderableEmojiSuggestions()
             } else if (sender is org.bukkit.entity.Player) {
                 get<AbstractPlayerStampManager>().getPlayerStamp(sender).map { stamp ->
                     if (stamp is EmojiStamp) stamp.char + stamp.shortCode else stamp.shortCode

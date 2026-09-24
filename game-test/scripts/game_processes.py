@@ -66,7 +66,7 @@ def free_port() -> int:
         return probe.getsockname()[1]
 
 
-def start_process(command: list, log_path: Path, cwd: Path) -> subprocess.Popen:
+def start_process(command: list, log_path: Path, cwd: Path, env: dict | None = None) -> subprocess.Popen:
     """コマンドを新しいプロセスグループで起動し、標準出力と標準エラーをログファイルへ書き出す。"""
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("wb") as log:
@@ -78,6 +78,7 @@ def start_process(command: list, log_path: Path, cwd: Path) -> subprocess.Popen:
             stdout=log,
             stderr=subprocess.STDOUT,
             start_new_session=True,
+            env=env,
         )
 
 
@@ -100,8 +101,9 @@ def stop_process(process: subprocess.Popen, grace_seconds: float) -> None:
 class ServerProcess:
     """run-paper の runGameTestServer タスクで起動する Paper サーバー。"""
 
-    def __init__(self, project_dir: Path, server_dir: Path, log_path: Path, minecraft_version: str):
+    def __init__(self, project_dir: Path, server_dir: Path, log_path: Path, minecraft_version: str, max_players: int):
         self.project_dir = project_dir
+        self.max_players = max_players
         self.server_dir = server_dir
         self.log_path = log_path
         self.minecraft_version = minecraft_version
@@ -177,7 +179,7 @@ class ServerProcess:
                     "difficulty=peaceful",
                     "spawn-monsters=false",
                     "spawn-protection=0",
-                    "max-players=1",
+                    f"max-players={self.max_players}",
                     "view-distance=4",
                     "simulation-distance=4",
                     "motd=MineStamp game test",
@@ -233,12 +235,12 @@ class ClientProcess:
         if code != 0:
             raise GameProcessError(f"client installation failed with code {code}; see {self.log_path}")
 
-    def start(self, server_port: int) -> None:
-        """クライアントを起動し、指定ポートのサーバーへ Quick Play で参加させる。"""
+    def start(self, server_port: int, display: str) -> None:
+        """指定ディスプレイ上でクライアントを起動し、指定ポートのサーバーへ Quick Play で参加させる。"""
         # インストール時のログを残すため、起動時のログは別ファイルに分ける
         launch_log = self.log_path.with_name(self.log_path.stem + "-launch.log")
         command = self._command() + ["--join-server", "127.0.0.1", "--join-server-port", str(server_port)]
-        self.process = start_process(command, launch_log, self.tools_dir)
+        self.process = start_process(command, launch_log, self.tools_dir, env={**os.environ, "DISPLAY": display})
 
     def check_alive(self) -> None:
         """クライアントが落ちていたら例外を送出する。"""
@@ -260,7 +262,8 @@ class ClientProcess:
             self.minecraft_version,
             "--mc-dir",
             str(self.client_dir),
-            "--jvm-arg=-Xms512M,-Xmx2G",
+            # 複数クライアントを同じランナーで動かすため、ヒープは控えめにする
+            "--jvm-arg=-Xms512M,-Xmx1536M",
             "--resolution",
             "1280x720",
             "--username",

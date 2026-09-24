@@ -74,17 +74,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
-            xvfb xauth xdotool \
+            xvfb xdotool \
             libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 libopenal1 \
             libxrandr2 libxinerama1 libxcursor1 libxi6
 
       - name: Run the in-game scenario
         run: |
           chmod +x ./gradlew
-          xvfb-run -a -s '-screen 0 1280x720x24' \
-            uv run --project game-test game-test/scripts/run_game_test.py \
-              --minecraft-version "$MINECRAFT_VERSION" \
-              --scenario "game-test/scenarios/$SCENARIO"
+          # プレイヤーごとの Xvfb はスクリプトが起動する
+          uv run --project game-test game-test/scripts/run_game_test.py \
+            --minecraft-version "$MINECRAFT_VERSION" \
+            --scenario "game-test/scenarios/$SCENARIO"
 
       - name: Upload screenshots and logs
         if: always()
@@ -93,10 +93,10 @@ jobs:
           name: game-test-${{ matrix.minecraft-version }}
           # Minecraft のクライアント・サーバー本体やアセットは再配布しない
           path: |
-            build/game-test/screenshots/*.png
+            build/game-test/screenshots/**/*.png
             build/game-test/logs/*.log
             build/game-test/server/logs/latest.log
-            build/game-test/client/logs/latest.log
-            build/game-test/client/crash-reports/*.txt
+            build/game-test/clients/*/logs/latest.log
+            build/game-test/clients/*/crash-reports/*.txt
           if-no-files-found: warn
           retention-days: 14

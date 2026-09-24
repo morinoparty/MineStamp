@@ -29,7 +29,7 @@ jobs:
       matrix: ${{ steps.versions.outputs.matrix }}
     steps:
       - id: versions
-        uses: morinoparty/fukurou/versions@feature/multi-test
+        uses: morinoparty/fukurou/versions@v2
         with:
           # MineStamp は Java 25 のバイトコードのため、Paper 1.21.4 以前では読み込めない
           minecraft-version: ${{ inputs.minecraft-versions || '1.21.6-' }}
@@ -88,7 +88,7 @@ jobs:
           path: ${{ runner.temp }}/plugins
 
       - id: fukurou
-        uses: morinoparty/fukurou@feature/multi-test
+        uses: morinoparty/fukurou@v2
         with:
           accept-eula: true
           minecraft-version: ${{ matrix.minecraft-version }}
@@ -130,7 +130,7 @@ jobs:
             4d92b739-40fc-467f-97fa-b49900deb52c > AWS_SECRET_ACCESS_KEY
 
       - id: ui
-        uses: morinoparty/fukurou/ui@feature/multi-test
+        uses: morinoparty/fukurou/ui@v2
         with:
           title: MineStamp ${{ needs.build.outputs.sha }}
           upload: auto

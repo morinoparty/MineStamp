@@ -37,25 +37,33 @@ repositories {
     maven("https://central.sonatype.com/repository/maven-snapshots/")
 }
 
+// Paper が起動時に Maven Central から取得するライブラリ。JAR には同梱せず plugin.yml の libraries に列挙する
+val library: Configuration by configurations.creating
+configurations.compileOnly { extendsFrom(library) }
+configurations.testImplementation { extendsFrom(library) }
+
 dependencies {
     compileOnly(libs.paper.api)
 
+    // cloud は Maven Central にないスナップショット版を使うため JAR に同梱する
     implementation(libs.bundles.commands)
 
-    implementation(libs.kotlinx.serialization.json)
-
-    implementation(libs.bundles.coroutines)
+    library(libs.kotlin.stdlib)
+    // cloud-kotlin-coroutines-annotations が suspend 関数の呼び出しに使う
+    library(libs.kotlin.reflect)
+    library(libs.kotlinx.serialization.json)
+    library(libs.bundles.coroutines)
+    // cloud-kotlin-coroutines が利用する
+    library(libs.kotlinx.coroutines.jdk8)
+    library(libs.koin.core.jvm)
+    library(libs.awsSdkS3)
+    library(libs.commonsMath3)
+    library(libs.javaJwt)
 
     compileOnly(libs.protocolLib)
 
     // MineAuth連携 (softdepend) — MineAuth本体がランタイムでAPIクラスを提供する
     compileOnly(libs.mineauth.api)
-
-    implementation(libs.koin.core)
-
-    implementation(libs.awsSdkS3)
-    implementation(libs.commonsMath3)
-    implementation(libs.javaJwt)
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
@@ -75,6 +83,14 @@ tasks {
     }
     build {
         dependsOn("shadowJar")
+    }
+    shadowJar {
+        // cloud が推移的に持ち込む Kotlin 系ライブラリは libraries で取得するため同梱しない
+        dependencies {
+            exclude(dependency("org.jetbrains.kotlin:.*:.*"))
+            exclude(dependency("org.jetbrains.kotlinx:.*:.*"))
+            exclude(dependency("org.jetbrains:annotations:.*"))
+        }
     }
     test {
         useJUnitPlatform()
@@ -115,15 +131,13 @@ sourceSets.main {
             main = "$group.minestamp.MineStamp"
             apiVersion = "1.20"
             softDepend = listOf("MineAuth")
-            libraries = libs.bundles.coroutines.asString()
+            libraries =
+                library.dependencies.map { dependency ->
+                    "${dependency.group}:${dependency.name}:${dependency.version}"
+                }
         }
     }
 }
-
-fun Provider<ExternalModuleDependencyBundle>.asString(): List<String> =
-    this.get().map { dependency ->
-        "${dependency.group}:${dependency.name}:${dependency.version}"
-    }
 
 ktlint {
     // 当面は非ゲート（`check`/`build` を失敗させない）。`./gradlew ktlintFormat` で整形する。

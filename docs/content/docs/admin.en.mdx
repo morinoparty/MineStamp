@@ -5,6 +5,9 @@ description: Commands and configuration for administrators
 
 ## Introduction.
 
+The libraries used by MineStamp (Kotlin, AWS SDK, etc.) are not bundled in the plugin JAR; Paper downloads them automatically from Maven Central on first startup.
+The emoji font is also downloaded on first startup, so the server needs internet access the first time it starts.
+
 Generate public and private keys on the server<br />
 To run `/stamp generate keyPair`<br />
 

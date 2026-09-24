@@ -16,7 +16,8 @@ data class LocalConfig(
     val type: FileType = FileType.LOCAL,
     val s3Config: S3Config? = null,
     val lang: String = "en_US",
-    val stamp: StampRenderConfig = StampRenderConfig()
+    val stamp: StampRenderConfig = StampRenderConfig(),
+    val font: EmojiFontConfig = EmojiFontConfig()
 )
 
 @Serializable

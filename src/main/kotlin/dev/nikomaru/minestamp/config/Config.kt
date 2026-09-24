@@ -14,6 +14,8 @@ import dev.nikomaru.minestamp.config.FileType
 import dev.nikomaru.minestamp.config.LocalConfig
 import dev.nikomaru.minestamp.config.PlayerDefaultEmojiConfigData
 import dev.nikomaru.minestamp.data.ImageListData
+import dev.nikomaru.minestamp.font.EmojiFont
+import dev.nikomaru.minestamp.font.EmojiFontLoader
 import dev.nikomaru.minestamp.stamp.StampManager
 import dev.nikomaru.minestamp.utils.LangUtils
 import dev.nikomaru.minestamp.utils.Utils
@@ -52,7 +54,13 @@ object Config : KoinComponent {
                 configFile.createNewFile()
                 configFile.writeText(json.encodeToString(defaultEmojiConfig))
             }
-            val localConfig = json.decodeFromString<LocalConfig>(configFile.readText())
+            val rawConfig = configFile.readText()
+            val localConfig = json.decodeFromString<LocalConfig>(rawConfig)
+            // 既存のconfig.jsonに新しい設定項目（font）が無ければ、既定値を書き足して管理者が編集できるようにする
+            if ("font" !in json.parseToJsonElement(rawConfig).jsonObject) {
+                configFile.writeText(json.encodeToString(localConfig))
+                plugin.logger.info("Added default emoji font settings to config.json.")
+            }
             loadKoinModules(
                 module {
                     single { localConfig }
@@ -71,8 +79,16 @@ object Config : KoinComponent {
 
             // 以降は互いに独立した処理のため並列に実行する
             coroutineScope {
+                // フォントの取得（初回はダウンロード）は時間がかかるため最初に開始する
+                val emojiFontJob =
+                    launch {
+                        val emojiFont = EmojiFontLoader.load(localConfig.font)
+                        loadKoinModules(module { single<EmojiFont> { emojiFont } })
+                    }
                 launch { LangUtils.loadLocale() }
                 launch {
+                    // sanitizeRandomConfigがフォントに依存するため、フォントの登録を待つ
+                    emojiFontJob.join()
                     if (localConfig.type == FileType.LOCAL) {
                         loadConfigForSingle()
                     } else {

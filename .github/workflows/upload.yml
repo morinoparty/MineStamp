@@ -4,6 +4,8 @@ on:
     types: [ published ]
 jobs:
   build:
+    # fonts-* タグは絵文字フォント配布用のリリースのため、プラグインの公開は行わない
+    if: ${{ !startsWith(github.event.release.tag_name, 'fonts-') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

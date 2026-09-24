@@ -139,9 +139,9 @@ spotless {
     // 実行する運用とする。
     isEnforceCheck = false
 
-    // ライセンスヘッダーは config/spotless/license-header.kt に一元管理し、$YEAR トークンで年を表す。
-    // updateYearWithLatest により、既存の年を「開始年-現在年」の範囲へ更新する
-    // （例: 2023 → 2023-2026）。新規ファイルは現在年のみ。
+    // ライセンスヘッダーは config/spotless/license-header.kt に一元管理し、「2023-$YEAR」で年の範囲を表す。
+    // 開始年が固定された範囲テンプレートのため、updateYearWithLatest は終了年のみを現在年へ更新する
+    // （例: 2023-2026 → 2023-2027）。新規ファイルも 2023-現在年 になる。
     val licenseHeader = rootProject.file("config/spotless/license-header.kt")
     kotlin {
         target("src/**/*.kt")

@@ -14,9 +14,9 @@ javaJwt = "4.6.1"
 mineauthApi = "0.3.12"
 junit = "6.1.3"
 ktlint = "14.2.0"
-# fukurou の Kotlin ハーネス（JitPack）。リリース前のため feature/kotlin-harness ブランチのスナップショットを使い、
-# リリース後はそのタグ（例: v2.2.0）に固定する。JitPack はタグの最初のビルドを永久にキャッシュするので正確なタグだけを使う
-fukurou = "feature~kotlin-harness-SNAPSHOT"
+# fukurou の Kotlin ハーネス（JitPack）。リリース前のため feature/kotlin-harness のコミットに固定し、
+# リリース後はそのタグ（例: v2.2.0）に固定する。スナップショットは中身が変わるので使わない
+fukurou = "b910dce37b"
 
 [libraries]
 paper-api = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }

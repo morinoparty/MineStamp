@@ -35,3 +35,8 @@ tasks:
     cmds:
       - ./gradlew clean test
     silent: true
+  # ゲーム内テスト（fukurou）。Xvfb などが必要で、実行すると Minecraft EULA に同意したことになる
+  game-test:
+    cmds:
+      - ./gradlew gameTest -Pfukurou.acceptEula=true
+    silent: false

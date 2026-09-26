@@ -1,47 +1,70 @@
 ---
 title: 🎮 In-game test
-description: A test that uses fukurou to check how stamps look on a real server and client
+description: Tests that check how stamps look on a real server and client, using fukurou's Kotlin harness
 ---
 
 ## 🧭 Overview
 
-MineStamp's in-game test runs on [fukurou](https://github.com/morinoparty/fukurou). fukurou starts a real Paper server and a vanilla Minecraft client for each player, drives them from a JSON scenario, and saves screenshots.
-The server starts only once per version, and every test in that session runs against the same running server. On GitHub Actions it runs for every pull request, and a link to a viewer with the results for all versions is posted on the pull request.
+MineStamp's in-game tests are JUnit tests written with the Kotlin harness of [fukurou](https://github.com/morinoparty/fukurou). fukurou starts a real Paper server and one vanilla Minecraft client per player, and presses keys, sends commands and takes screenshots as the test code says.
+The tests live in `src/gameTest/kotlin` and run in a Gradle test suite named `gameTest`. This suite is not part of `./gradlew build` or `task check`. On GitHub Actions they run for every pull request, and a link to a viewer that collects the results of every version is commented on the PR.
 
-## 📝 Suite and scenarios
+## 🏟️ Server and tests
 
-MineStamp's in-game test is made of one suite file, `game-test/fukurou.yml`, and several tests under `game-test/scenarios/`. The suite holds what every test shares (players, reset settings, fixtures), and each scenario file is one test. The harness resets the world and the clients between tests.
+`StampArena` is a JUnit extension that stands for one server. Alice (an operator) and Bob join it, and before each test it prepares the following.
 
-`fukurou.yml` defines two fixtures:
+- The harness reset (time, weather, inventories and the arena) and a 5 second wait (`settle`)
+- `arena` — builds two stone pillars and puts Alice and Bob on them, facing each other.
+- `front-view` — switches Alice to the front view (F5 twice). The view goes back to first person before the next test.
 
-- `arena` — builds the two stone pillars Alice and Bob face each other from, and teleports them onto their pillar.
-- `front-view` — switches Alice's view to the front view by pressing F5 twice. fukurou switches her back to first person before the next test.
-
-There are two tests:
+`StampTest` has the following two tests. The method name is the test id.
 
 1. `stamp-thinking-face` — Alice runs `/st :thinking-face:`.
 2. `stamp-sleeping-face` — Alice runs `/st :sleeping-face:`.
 
-Both tests wait 1.5 seconds after the server log confirms the command, then take both players' screenshots at the same moment with `"on": ["Alice", "Bob"]`. The stamp stays on screen for 3 seconds, so it is still visible 1.5 seconds in. MineStamp's stamp cooldown is 3 seconds of display plus a 5-second `waitSecond`, 8 seconds total. The 1.5-second wait before the previous test's screenshot, the post-reset wait (`settle: 5` seconds) and the fixture's 2-second wait together add up to 8.5 seconds or more, which clears the cooldown before this test's stamp is sent.
+Both tests check the log line that shows the server received the command, wait 1.5 seconds, and let Alice and Bob take a screenshot at the same time. At the end, they check that no error appeared in Alice's chat. The stamp cooldown (3 seconds of display + 5 seconds of `waitSecond`) is over after 8.5 seconds: 1.5 seconds from the previous test, 5 seconds after the reset and 2 seconds from `arena`.
 
-See the [fukurou README](https://github.com/morinoparty/fukurou#readme) for the suite and scenario format. To validate the whole suite locally, run:
+When another extension class is added and listed with `@ExtendWith`, each extension starts its own independent server, and each result (`paper-<version>-<label>`) is shown side by side in the viewer.
+
+## 🖥️ Running the tests
+
+The in-game tests need Linux (x86_64) with Xvfb, xdotool, xmodmap and Mesa. They usually run on GitHub Actions. To run them locally, install the following packages and run `task game-test`. To choose a version or other settings, run Gradle directly.
 
 ```sh
-uvx --from git+https://github.com/morinoparty/fukurou@v2 fukurou validate --suite game-test/fukurou.yml
+sudo apt-get install --no-install-recommends -y xvfb xdotool x11-xserver-utils \
+  libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 libopenal1 libvulkan1 mesa-vulkan-drivers \
+  libxrandr2 libxinerama1 libxcursor1 libxi6
+./gradlew gameTest -Pfukurou.acceptEula=true -Pfukurou.minecraftVersion=26.2
 ```
+
+The results are saved in `build/fukurou/out/paper-<version>-stamp-arena/`. The main properties are the following.
+
+| Property | Meaning |
+| --- | --- |
+| `fukurou.acceptEula` | Setting it to `true` means accepting the Minecraft EULA (required). |
+| `fukurou.minecraftVersion` | The version to start. The default is 26.2. |
+| `fukurou.paperChannel` | The least stable channel of Paper builds to use (`stable` / `beta` / `alpha`). The default is `alpha`. |
+| `fukurou.plugin.minestamp` | The plugin JAR to test. The default is the `shadowJar` output. |
+| `fukurou.outDir` | Where the results are written. The default is `build/fukurou/out`. |
+| `gameTest.tags` | Tags of the tests to run (comma separated). |
+
+To run only some tests, use Gradle's `--tests` (for example `--tests '*stamp-thinking-face*'`).
 
 ## ⚙️ Workflow
 
-`.github/workflows/game_test.yml` has these jobs:
+`.github/workflows/game_test.yml` is made of the following jobs.
 
-| Job | What it does |
+| Job | Description |
 | --- | --- |
-| `versions` | Resolves the versions to test with `morinoparty/fukurou/versions` (`1.21.6-` by default). |
-| `build` | Builds the plugin once. |
-| `test` | Runs the whole suite on each version with `morinoparty/fukurou` in a single server session, together with ProtocolLib. |
-| `deploy` | Builds a viewer with the results for all versions with `morinoparty/fukurou/ui` and uploads it to S3. |
-| `preview` | Posts the test summary (e.g. "14 passed of 14 test runs") and the viewer link on the pull request. |
+| `versions` | Decides the list of versions to test with `morinoparty/fukurou/versions` (the default is `1.21.6-`). |
+| `build` | Builds the plugin only once. |
+| `test` | For each version, prepares the virtual display and other tools with `morinoparty/fukurou/setup` and runs `./gradlew gameTest`. `StampArena` downloads ProtocolLib from its GitHub release. |
+| `deploy` | Builds a viewer of the results of every version and every server with `morinoparty/fukurou/ui`, and uploads it to S3. |
+| `preview` | Comments the test counts and a link to the viewer on the PR. |
 
-MineStamp is compiled to Java 25 bytecode, and Paper 1.21.4 and earlier cannot load it (`Unsupported class file major version 69`), so the default range starts at 1.21.6. When you start the `Game test` workflow manually, you can pick a version range and which test ids / tags to run.
+MineStamp is built as Java 25 bytecode, which Paper 1.21.4 and older cannot load (`Unsupported class file major version 69`), so the default range starts at 1.21.6. When the `Game test` workflow is run by hand, the version range, the ids (method names) of the tests to run, tags and the Paper channel can be chosen.
 
-Running the test starts the Minecraft server and clients, and accepts the [Minecraft EULA](https://www.minecraft.net/eula).
+Running the tests starts a Minecraft server and clients, which means accepting the [Minecraft EULA](https://www.minecraft.net/eula).
+
+## 🙏 Acknowledgements
+
+This test is based on the in-game test workflow of [sya-ri/ktAdvancements](https://github.com/sya-ri/ktAdvancements/blob/master/.github/workflows/game-test.yml).

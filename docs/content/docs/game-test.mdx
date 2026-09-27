@@ -57,11 +57,16 @@ sudo apt-get install --no-install-recommends -y xvfb xdotool x11-xserver-utils \
 | --- | --- |
 | `versions` | `morinoparty/fukurou/versions` で、テストするバージョンの一覧を決めます（既定は `1.21.6-`）。 |
 | `build` | プラグインを 1 回だけビルドします。 |
-| `test` | バージョンごとに `morinoparty/fukurou/setup` で仮想ディスプレイなどを用意し、`./gradlew gameTest` を実行します。ProtocolLib は `StampArena` が GitHub のリリースから取得します。 |
+| `test` | バージョンごとに `morinoparty/fukurou/setup` で仮想ディスプレイなどを用意し、`./gradlew gameTest` を実行します。PacketEvents は `StampArena` が GitHub のリリースから取得します。 |
 | `deploy` | `morinoparty/fukurou/ui` で全バージョン・全サーバーの結果をまとめたビューアを作り、S3 にアップロードします。 |
 | `preview` | テストの件数とビューアへのリンクを PR にコメントします。 |
+| `passed-versions` | すべてのテストに通ったバージョンの一覧をまとめ、ワークフローの output `passed-versions` として返します。 |
 
 MineStamp は Java 25 のバイトコードでビルドされており、Paper 1.21.4 以前では読み込めない（`Unsupported class file major version 69`）ため、既定の範囲は 1.21.6 以降にしています。`Game test` ワークフローを手動で実行するときは、バージョンの範囲、実行するテストの id（メソッド名）、タグ、Paper のチャンネルを選べます。
+
+## 🚀 リリース時の Modrinth への公開
+
+GitHub でリリースを公開すると、`.github/workflows/upload.yml` がこのワークフローを `workflow_call` で呼び出します。テストに使った JAR をそのまま Modrinth に公開し、対応する Minecraft のバージョンには `passed-versions` のバージョン（すべてのテストに通ったもの）だけを記載します。1 つのバージョンも通らなかった場合は公開しません。依存プラグインとして PacketEvents を必須にしています。
 
 テストを実行すると Minecraft のサーバーとクライアントを起動するため、[Minecraft EULA](https://www.minecraft.net/eula) に同意したことになります。
 

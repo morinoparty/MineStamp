@@ -53,8 +53,10 @@ class StampArena : GameServerExtension() {
         plugins {
             // gameTest タスクが shadowJar の成果物のパスを fukurou.plugin.minestamp に渡す
             underTest(PluginSource.systemProperty("minestamp"))
-            // スタンプの描画に ProtocolLib を使う。dmulloy2 の Jenkins は 403 を返すため GitHub の開発版リリースから取得する
-            dependency(PluginSource.githubRelease("dmulloy2/ProtocolLib", tag = "dev-build", asset = "ProtocolLib.jar"))
+            // スタンプの描画に PacketEvents を使う（plugin.yml の depend）
+            dependency(
+                PluginSource.githubRelease("retrooper/packetevents", tag = "v2.14.0", asset = "packetevents-spigot-2.14.0.jar")
+            )
         }
         // スタンプのクールダウンは表示 3 秒 + waitSecond 5 秒 = 8 秒。
         // 前のテストの撮影前の 1.5 秒 + この settle 5 秒 + arena の 2 秒 = 8.5 秒空くので、次のテストの送信時には明けている

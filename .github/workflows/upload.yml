@@ -3,28 +3,44 @@ on:
   release:
     types: [ published ]
 jobs:
-  build:
+  # 公開する JAR でゲームのテストを走らせ、通ったバージョンだけを Modrinth の対応バージョンにする
+  game-test:
     # fonts-* タグは絵文字フォント配布用のリリースのため、プラグインの公開は行わない
     if: ${{ !startsWith(github.event.release.tag_name, 'fonts-') }}
+    uses: ./.github/workflows/game_test.yml
+    # deploy ジョブがビューアの公開に Bitwarden / S3 の secret を使う
+    secrets: inherit
+    # 呼び出し先の preview ジョブが pull-requests: write を宣言しているため、ここでも許可しておく (release では実行されない)
+    permissions:
+      contents: read
+      pull-requests: write
+
+  build:
+    needs: game-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-    
-      - uses: actions/setup-java@v5
+
+      # テストに通った JAR をそのまま公開する
+      - uses: actions/download-artifact@v8
         with:
-          distribution: 'temurin'
-          java-version: '25'
-          cache: 'gradle'
-    
-      - name: Change wrapper permissions
-        run: chmod +x ./gradlew
-     
-      - name: Build with Gradle
-        run: ./gradlew build
-     
+          name: plugin
+          path: ./build/libs
+
       - name: Change file name
         run: mv ./build/libs/MineStamp-1.0-SNAPSHOT-all.jar ./build/libs/MineStamp_${{ github.event.release.tag_name }}.jar
-     
+
+      # 1つのバージョンでも通らなければ公開しない
+      - name: Check the passed versions
+        env:
+          PASSED_VERSIONS: ${{ needs.game-test.outputs.passed-versions }}
+        run: |
+          if [ -z "$(echo "$PASSED_VERSIONS" | tr -d '[:space:]')" ]; then
+            echo "::error::No Minecraft version passed the game tests"
+            exit 1
+          fi
+          echo "$PASSED_VERSIONS"
+
       - uses: Kir-Antipov/mc-publish@v3.3
         with:
           modrinth-id: SdV5cyLq
@@ -37,10 +53,11 @@ jobs:
           loaders: |
             paper
             purpur
+          # Modrinth のバージョン番号は "2.14.0+spigot" のようにプラットフォーム名を含むため、バージョンは固定しない
           dependencies: |
-            ProtocolLib@5.4.0(required)
-          game-versions: |
-            >=1.21.4
+            packetevents(required)
+          # ゲームのテストに通ったバージョンだけを対応バージョンとして載せる
+          game-versions: ${{ needs.game-test.outputs.passed-versions }}
           game-version-filter: releases
           java: |
-            21
+            25

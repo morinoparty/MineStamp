@@ -9,11 +9,13 @@
 
 package dev.nikomaru.minestamp.command
 
-import com.comphenix.protocol.PacketType
-import com.comphenix.protocol.ProtocolLibrary
-import com.comphenix.protocol.ProtocolManager
-import com.comphenix.protocol.events.PacketContainer
-import com.comphenix.protocol.wrappers.WrappedParticle
+import com.github.retrooper.packetevents.PacketEvents
+import com.github.retrooper.packetevents.protocol.particle.Particle
+import com.github.retrooper.packetevents.protocol.particle.data.ParticleDustData
+import com.github.retrooper.packetevents.protocol.particle.type.ParticleTypes
+import com.github.retrooper.packetevents.util.Vector3d
+import com.github.retrooper.packetevents.util.Vector3f
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerParticle
 import dev.nikomaru.minestamp.config.LocalConfig
 import dev.nikomaru.minestamp.config.StampRenderConfig
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
@@ -23,9 +25,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.bukkit.Color
+import org.bukkit.Bukkit
 import org.bukkit.Location
-import org.bukkit.Particle
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.incendo.cloud.annotation.specifier.Range
@@ -100,17 +101,22 @@ class ColorEmojiCommand : KoinComponent {
             return
         }
         try {
-            val pm = ProtocolLibrary.getProtocolManager()
+            val playerManager = PacketEvents.getAPI().playerManager
             // 位置・色はフレーム間で不変のため、パケットは1回だけ生成して各フレームで再送する
-            val packets = buildParticlePackets(stamp.getStamp(), config, sender.location, pm)
+            val packets = buildParticlePackets(stamp.getStamp(), config, sender.location)
             if (packets.isEmpty()) return
             val count = 8
 
             repeat(count * config.second) {
+                // PacketEvents にはブロードキャストがないため、メインスレッドでオンラインプレイヤーを取得してから各自に送る
+                val players = Bukkit.getOnlinePlayers().toList()
                 coroutineScope {
                     packets.chunked(256).forEach { chunk ->
                         launch(Dispatchers.IO) {
-                            chunk.forEach(pm::broadcastServerPacket)
+                            // ラッパーは送信のたびにロックして再エンコードされるため、複数プレイヤーへの使い回しは安全
+                            chunk.forEach { packet ->
+                                players.forEach { player -> playerManager.sendPacket(player, packet) }
+                            }
                         }
                     }
                 }
@@ -133,9 +139,8 @@ class ColorEmojiCommand : KoinComponent {
     private fun buildParticlePackets(
         image: BufferedImage,
         config: StampRenderConfig,
-        location: Location,
-        pm: ProtocolManager
-    ): List<PacketContainer> {
+        location: Location
+    ): List<WrapperPlayServerParticle> {
         val stride = (image.width / config.accuracy).coerceAtLeast(1)
         val pixels =
             buildList {
@@ -161,33 +166,30 @@ class ColorEmojiCommand : KoinComponent {
         return pixels.map { pixel ->
             val x = (pixel.x - (xMin + midWidth)) / width * 3 * width / height * size
             val y = (yMax - pixel.y) / height * 3 * size
-            createParticlePacket(Color.fromARGB(pixel.rgb), particleSize, location, x, y, pm)
+            createParticlePacket(pixel.rgb, particleSize, location, x, y)
         }
     }
 
     private fun createParticlePacket(
-        color: Color,
+        rgb: Int,
         particleSize: Float,
         location: Location,
         x: Double,
-        y: Double,
-        pm: ProtocolManager
-    ): PacketContainer {
-        val packet = pm.createPacket(PacketType.Play.Server.WORLD_PARTICLES)
-        packet.newParticles.write(
-            0,
-            WrappedParticle.create(
-                Particle.DUST,
-                Particle.DustOptions(color, particleSize)
-            )
-        )
+        y: Double
+    ): WrapperPlayServerParticle {
+        // DUST の色は RGB のみ扱うため、アルファ値は捨てる
+        val dust = ParticleDustData(particleSize, (rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF)
         val absX = location.x + (x * cos(-location.yaw.toDouble() / 180 * Math.PI))
         val absZ = location.z + (x * sin(location.yaw.toDouble() / 180 * Math.PI))
         val absY = location.y + y + 2
-        packet.doubles
-            .write(0, absX)
-            .write(1, absY)
-            .write(2, absZ)
-        return packet
+        // count = 0 はオフセットを使わず指定位置にちょうど1つだけ表示する (ProtocolLib 版の既定値と同じ)
+        return WrapperPlayServerParticle(
+            Particle(ParticleTypes.DUST, dust),
+            false,
+            Vector3d(absX, absY, absZ),
+            Vector3f.zero(),
+            0f,
+            0
+        )
     }
 }

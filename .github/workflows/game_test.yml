@@ -16,6 +16,25 @@ on:
       paper-channel:
         description: "Least stable Paper build channel to test: stable, beta or alpha"
         default: alpha
+  # upload.yml がリリース時に呼び出し、テストに通ったバージョンを Modrinth の対応バージョンにする
+  workflow_call:
+    inputs:
+      minecraft-versions:
+        type: string
+        default: "1.21.6-"
+      tests:
+        type: string
+        default: ""
+      tags:
+        type: string
+        default: ""
+      paper-channel:
+        type: string
+        default: alpha
+    outputs:
+      passed-versions:
+        description: "Newline separated Minecraft versions whose game tests all passed, oldest first"
+        value: ${{ jobs.passed-versions.outputs.versions }}
 
 permissions:
   contents: read
@@ -106,9 +125,10 @@ jobs:
         with:
           minecraft-version: ${{ matrix.minecraft-version }}
 
-      - name: Run the game tests
+      - id: game-test
+        name: Run the game tests
         env:
-          # github 形式の依存プラグイン（ProtocolLib dev-build）を GitHub API から取るときに使う
+          # github 形式の依存プラグイン（PacketEvents）を GitHub API から取るときに使う
           GITHUB_TOKEN: ${{ github.token }}
           MINECRAFT_VERSION: ${{ matrix.minecraft-version }}
           PAPER_CHANNEL: ${{ inputs.paper-channel || 'alpha' }}
@@ -156,6 +176,48 @@ jobs:
           path: build/test-results/gameTest
           if-no-files-found: ignore
           retention-days: 7
+
+      # matrix のジョブの outputs は最後のジョブで上書きされるため、通ったバージョンは artifact で passed-versions ジョブへ渡す。
+      # gameTest（そのバージョンの全テスト）が成功したときだけ記録する
+      - name: Record the passed version
+        if: ${{ steps.game-test.outcome == 'success' }}
+        env:
+          MINECRAFT_VERSION: ${{ matrix.minecraft-version }}
+        run: echo "$MINECRAFT_VERSION" > "$RUNNER_TEMP/passed-version.txt"
+
+      - if: ${{ steps.game-test.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: passed-version-${{ matrix.minecraft-version }}
+          path: ${{ runner.temp }}/passed-version.txt
+          retention-days: 1
+
+  # 全テストに通ったバージョンの一覧をまとめる。ui の failed-tests から逆算すると、
+  # 結果すら出なかったバージョンを「失敗なし」と数えてしまうため、各ジョブが記録した結果を使う
+  passed-versions:
+    needs: [build, test]
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-24.04
+    outputs:
+      versions: ${{ steps.collect.outputs.versions }}
+    steps:
+      # 1つも通らなかった場合は artifact が無いが、空の一覧として扱う
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          pattern: passed-version-*
+          path: ${{ runner.temp }}/passed-versions
+
+      - id: collect
+        run: |
+          versions=$(cat "$RUNNER_TEMP"/passed-versions/*/passed-version.txt 2>/dev/null | sort -V || true)
+          echo "Passed versions:"
+          echo "$versions"
+          {
+            echo "versions<<EOF"
+            echo "$versions"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
   # 各バージョンの結果をまとめたビューアを作り、S3 に公開する
   deploy:

@@ -57,9 +57,10 @@ To run only some tests, use Gradle's `--tests` (for example `--tests '*stamp-thi
 | --- | --- |
 | `versions` | Decides the list of versions to test with `morinoparty/fukurou/versions` (the default is `1.21.6-`). |
 | `build` | Builds the plugin only once. |
-| `test` | For each version, prepares the virtual display and other tools with `morinoparty/fukurou/setup` and runs `./gradlew gameTest`. `StampArena` downloads ProtocolLib from its GitHub release. |
+| `test` | For each version, prepares the virtual display and other tools with `morinoparty/fukurou/setup` and runs `./gradlew gameTest`. `StampArena` downloads PacketEvents from its GitHub release. |
 | `deploy` | Builds a viewer of the results of every version and every server with `morinoparty/fukurou/ui`, and uploads it to S3. |
 | `preview` | Comments the test counts and a link to the viewer on the PR. |
+| `passed-versions` | Collects the versions whose tests all passed and returns them as the workflow output `passed-versions`. |
 
 MineStamp is built as Java 25 bytecode, which Paper 1.21.4 and older cannot load (`Unsupported class file major version 69`), so the default range starts at 1.21.6. When the `Game test` workflow is run by hand, the version range, the ids (method names) of the tests to run, tags and the Paper channel can be chosen.
 
@@ -68,3 +69,4 @@ Running the tests starts a Minecraft server and clients, which means accepting t
 ## 🙏 Acknowledgements
 
 This test is based on the in-game test workflow of [sya-ri/ktAdvancements](https://github.com/sya-ri/ktAdvancements/blob/master/.github/workflows/game-test.yml).
+| `passed-versions` | Collects the versions whose tests all passed and returns them as the workflow output `passed-versions`. |

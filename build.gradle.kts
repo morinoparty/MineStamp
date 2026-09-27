@@ -37,6 +37,12 @@ repositories {
     maven("https://plugins.gradle.org/m2/")
     maven("https://repo.incendo.org/content/repositories/snapshots")
     maven("https://central.sonatype.com/repository/maven-snapshots/")
+    // PacketEvents は CodeMC のリポジトリで配布されている。
+    // jitpack が com.github.* に 401 を返して解決が止まるため、このグループは CodeMC だけから取得する
+    exclusiveContent {
+        forRepository { maven("https://repo.codemc.io/repository/maven-releases/") }
+        filter { includeGroup("com.github.retrooper") }
+    }
 }
 
 // Paper が起動時に Maven Central から取得するライブラリ。JAR には同梱せず plugin.yml の libraries に列挙する
@@ -62,7 +68,8 @@ dependencies {
     library(libs.commonsMath3)
     library(libs.javaJwt)
 
-    compileOnly(libs.protocolLib)
+    // スタンプのパーティクルをパケットで送るために使う。PacketEvents 本体がランタイムでAPIクラスを提供する
+    compileOnly(libs.packetevents.spigot)
 
     // MineAuth連携 (softdepend) — MineAuth本体がランタイムでAPIクラスを提供する
     compileOnly(libs.mineauth.api)
@@ -111,8 +118,7 @@ tasks {
         val plugins =
             runPaper.downloadPluginsSpec {
                 github("Test-Account666", "PlugManX", "2.4.1", "PlugManX-2.4.1.jar")
-                // dmulloy2 の Jenkins は 403 を返すため GitHub の開発版リリースから取得する
-                github("dmulloy2", "ProtocolLib", "dev-build", "ProtocolLib.jar")
+                github("retrooper", "packetevents", "v2.14.0", "packetevents-spigot-2.14.0.jar")
                 github("jpenilla", "TabTPS", "v1.3.25", "tabtps-spigot-1.3.25.jar")
             }
         downloadPlugins {
@@ -204,6 +210,8 @@ sourceSets.main {
             website = "https://github.com/Nlkomaru/AdvancedShopFinder"
             main = "$group.minestamp.MineStamp"
             apiVersion = "1.20"
+            // スタンプの描画に PacketEvents が必須のため depend にする
+            depend = listOf("packetevents")
             softDepend = listOf("MineAuth")
             libraries =
                 library.dependencies.map { dependency ->

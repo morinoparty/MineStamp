@@ -13,7 +13,7 @@ This is plugin to display emojis above your head in Minecraft.
 - Multi server support by object storage(S3, minio, R2)
 
 ## Require
-[ProtocolLib](https://github.com/dmulloy2/ProtocolLib)
+[PacketEvents](https://modrinth.com/plugin/packetevents)
 
 ## License
 Written in 2022-2024 by Nikomaru. No Rights Reserved.

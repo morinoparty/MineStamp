@@ -1,34 +1,53 @@
 ---
 title: 🎮 ゲーム内テスト
-description: fukurou を使い、実際のサーバーとクライアントでスタンプの見た目を確認するテスト
+description: fukurou の Kotlin ハーネスを使い、実際のサーバーとクライアントでスタンプの見た目を確認するテスト
 ---
 
 ## 🧭 概要
 
-MineStamp のゲーム内テストは、[fukurou](https://github.com/morinoparty/fukurou) を使って実行します。fukurou は、実際の Paper サーバーと、プレイヤーごとのバニラ Minecraft クライアントを起動し、JSON のシナリオどおりに操作してスクリーンショットを保存します。
-1 バージョンにつきサーバーは 1 回だけ起動し、そのセッションの中でテストを順番に実行します。GitHub Actions ではプルリクエストごとに実行され、全バージョンの結果をまとめたビューアへのリンクが PR にコメントされます。
+MineStamp のゲーム内テストは、[fukurou](https://github.com/morinoparty/fukurou) の Kotlin ハーネスを使った JUnit のテストとして書かれています。fukurou は実際の Paper サーバーと、プレイヤーごとのバニラ Minecraft クライアントを起動し、テストのコードどおりにキー入力・コマンド・スクリーンショットを行います。
+テストは `src/gameTest/kotlin` にあり、`gameTest` という Gradle のテストスイートで実行されます。このスイートは `./gradlew build` や `task check` には含まれません。GitHub Actions ではプルリクエストごとに実行され、全バージョンの結果をまとめたビューアへのリンクが PR にコメントされます。
 
-## 📝 スイートとシナリオ
+## 🏟️ サーバーとテスト
 
-MineStamp のゲーム内テストは、1 つのスイートファイル `game-test/fukurou.yml` と、`game-test/scenarios/` に置かれた複数のテストで構成されています。スイートは全テストで共有する内容（プレイヤー、リセット設定、fixture）を持ち、シナリオ 1 ファイルがテスト 1 件に対応します。テストの間はハーネスがワールドとクライアントをリセットします。
+`StampArena` が 1 台のサーバーを表す JUnit 拡張です。Alice（OP）と Bob が参加し、各テストの前に次の準備をします。
 
-`fukurou.yml` は次の 2 つの fixture を定義しています。
+- ハーネスによるリセット（時刻・天候・インベントリ・アリーナ）と、5 秒の待機（`settle`）
+- `arena` — 2 本の石の柱を作り、Alice と Bob を向かい合わせに立たせます。
+- `front-view` — Alice の視点を正面から見た視点（F5 を 2 回）にします。次のテストの前に一人称へ戻ります。
 
-- `arena` — Alice と Bob が向かい合う石の柱を作り、それぞれの上に転送します。
-- `front-view` — Alice の視点を F5 を2回押して正面から見た視点にします。fukurou はテストの前に自動で一人称へ戻します。
-
-テストは次の 2 件です。
+`StampTest` のテストは次の 2 件です。メソッド名がテストの id になります。
 
 1. `stamp-thinking-face` — Alice が `/st :thinking-face:` を実行します。
 2. `stamp-sleeping-face` — Alice が `/st :sleeping-face:` を実行します。
 
-どちらのテストも、コマンドがサーバーに届いたログを確認したあと 1.5 秒待ち、`"on": ["Alice", "Bob"]` で両プレイヤーが同時にスクリーンショットを撮ります。スタンプは 3 秒間表示されるので、1.5 秒待ってからならまだ画面に残っています。MineStamp のスタンプのクールダウンは表示 3 秒 + `waitSecond` 5 秒 で 8 秒です。前のテストのスクリーンショット前の待機（1.5 秒）と、リセット後の待機（`settle: 5` 秒）、fixture の待機（2 秒）を合わせると 8.5 秒以上になり、次のテストのスタンプ送信までにクールダウンが明けています。
+どちらのテストも、コマンドがサーバーに届いたログを確認してから 1.5 秒待ち、Alice と Bob が同時にスクリーンショットを撮ります。最後に、Alice のチャットにエラーが出ていないことを確認します。スタンプのクールダウン（表示 3 秒 + `waitSecond` 5 秒）は、前のテストの 1.5 秒、リセット後の 5 秒、`arena` の 2 秒を合わせた 8.5 秒で明けます。
 
-スイートとシナリオの書き方は、[fukurou の README](https://github.com/morinoparty/fukurou#readme) を参照してください。手元でスイート全体を検証するには、次のコマンドを実行します。
+別の拡張クラスを作って `@ExtendWith` で並べると、拡張ごとに独立したサーバーが起動し、それぞれの結果（`paper-<バージョン>-<ラベル>`）がビューアに並びます。
+
+## 🖥️ 実行方法
+
+ゲーム内テストには Linux（x86_64）と Xvfb・xdotool・xmodmap・Mesa が必要です。通常は GitHub Actions で実行します。手元で実行する場合は、次のパッケージを入れてから `task game-test` を実行します。バージョンなどを指定する場合は、Gradle を直接実行します。
 
 ```sh
-uvx --from git+https://github.com/morinoparty/fukurou@v2 fukurou validate --suite game-test/fukurou.yml
+sudo apt-get install --no-install-recommends -y xvfb xdotool x11-xserver-utils \
+  libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 libopenal1 libvulkan1 mesa-vulkan-drivers \
+  libxrandr2 libxinerama1 libxcursor1 libxi6
+./gradlew gameTest -Pfukurou.acceptEula=true -Pfukurou.minecraftVersion=26.2
 ```
+
+結果は `build/fukurou/out/paper-<バージョン>-stamp-arena/` に保存されます。主なプロパティは次のとおりです。
+
+| プロパティ | 内容 |
+| --- | --- |
+| `fukurou.acceptEula` | `true` にすると Minecraft EULA に同意したことになります（必須）。 |
+| `fukurou.minecraftVersion` | 起動するバージョンです。省略すると 26.2 です。 |
+| `fukurou.paperChannel` | 使う Paper のビルドの最も不安定なチャンネル（`stable` / `beta` / `alpha`）です。省略すると `alpha` です。 |
+| `fukurou.plugin.minestamp` | テストするプラグインの JAR です。省略すると `shadowJar` の成果物を使います。 |
+| `fukurou.outDir` | 結果の出力先です。省略すると `build/fukurou/out` です。 |
+| `gameTest.tags` | 実行するテストのタグ（カンマ区切り）です。 |
+
+特定のテストだけを実行するには、Gradle の `--tests` を使います（例: `--tests '*stamp-thinking-face*'`）。
 
 ## ⚙️ ワークフロー
 
@@ -37,11 +56,15 @@ uvx --from git+https://github.com/morinoparty/fukurou@v2 fukurou validate --suit
 | ジョブ | 内容 |
 | --- | --- |
 | `versions` | `morinoparty/fukurou/versions` で、テストするバージョンの一覧を決めます（既定は `1.21.6-`）。 |
-| `build` | プラグインを1回だけビルドします。 |
-| `test` | バージョンごとに `morinoparty/fukurou` でスイート全体を 1 つのサーバーセッションで実行します。ProtocolLib も一緒に導入します。 |
-| `deploy` | `morinoparty/fukurou/ui` で全バージョンの結果をまとめたビューアを作り、S3 にアップロードします。 |
-| `preview` | テストの件数（例: "14 passed of 14 test runs"）とビューアへのリンクを PR にコメントします。 |
+| `build` | プラグインを 1 回だけビルドします。 |
+| `test` | バージョンごとに `morinoparty/fukurou/setup` で仮想ディスプレイなどを用意し、`./gradlew gameTest` を実行します。ProtocolLib は `StampArena` が GitHub のリリースから取得します。 |
+| `deploy` | `morinoparty/fukurou/ui` で全バージョン・全サーバーの結果をまとめたビューアを作り、S3 にアップロードします。 |
+| `preview` | テストの件数とビューアへのリンクを PR にコメントします。 |
 
-MineStamp は Java 25 のバイトコードでビルドされており、Paper 1.21.4 以前では読み込めない（`Unsupported class file major version 69`）ため、既定の範囲は 1.21.6 以降にしています。`Game test` ワークフローを手動で実行するときは、バージョンの範囲と、実行するテストの id / タグを選べます。
+MineStamp は Java 25 のバイトコードでビルドされており、Paper 1.21.4 以前では読み込めない（`Unsupported class file major version 69`）ため、既定の範囲は 1.21.6 以降にしています。`Game test` ワークフローを手動で実行するときは、バージョンの範囲、実行するテストの id（メソッド名）、タグ、Paper のチャンネルを選べます。
 
 テストを実行すると Minecraft のサーバーとクライアントを起動するため、[Minecraft EULA](https://www.minecraft.net/eula) に同意したことになります。
+
+## 🙏 謝辞
+
+このテストは [sya-ri/ktAdvancements](https://github.com/sya-ri/ktAdvancements/blob/master/.github/workflows/game-test.yml) のゲーム内テストのワークフローを元にしています。

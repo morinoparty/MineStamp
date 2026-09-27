@@ -9,6 +9,8 @@
 
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.time.Duration
 
 plugins {
     java
@@ -74,12 +76,12 @@ java {
 }
 
 tasks {
-    compileKotlin {
+    // main・test・gameTest のすべてのソースセットを Java 25 のバイトコードにそろえる
+    withType<KotlinCompile>().configureEach {
         compilerOptions.jvmTarget.set(JvmTarget.JVM_25)
-        compilerOptions.javaParameters = true
     }
-    compileTestKotlin {
-        compilerOptions.jvmTarget.set(JvmTarget.JVM_25)
+    compileKotlin {
+        compilerOptions.javaParameters = true
     }
     build {
         dependsOn("shadowJar")
@@ -119,6 +121,78 @@ tasks {
     }
     withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
+    }
+}
+
+testing {
+    suites {
+        // ゲーム内テストは Minecraft のクライアントと Xvfb が要るため、既定の test（./gradlew build が実行する）とは分ける。
+        // 独自の JvmTestSuite は check に含まれないので、build や task check では実行されない
+        register<JvmTestSuite>("gameTest") {
+            useJUnitJupiter(libs.versions.junit)
+            // kotlin.stdlib.default.dependency=false のため、stdlib・kotlin-reflect・coroutines を library から受け取る
+            // （JUnit 6 が suspend のテストメソッドを呼ぶには kotlin-reflect と kotlinx-coroutines-core が要る）
+            configurations.named(sources.implementationConfigurationName) { extendsFrom(library) }
+            dependencies {
+                implementation(libs.fukurou)
+                // 既定の test と同じく、IDE や Gradle のバージョンに依存せずランチャーを明示する
+                runtimeOnly(libs.junit.platform.launcher)
+            }
+            targets.configureEach {
+                testTask.configure {
+                    description = "Runs the in-game tests with fukurou (needs Xvfb, xdotool, xmodmap and Mesa; CI only)"
+                    // CI は build ジョブの JAR を -Pfukurou.plugin.minestamp で渡す。無ければここで shadowJar を作る
+                    val prebuilt = providers.gradleProperty("fukurou.plugin.minestamp")
+                    if (!prebuilt.isPresent) dependsOn(tasks.shadowJar)
+                    val pluginJar =
+                        prebuilt.orElse(tasks.shadowJar.flatMap { it.archiveFile }.map { it.asFile.absolutePath })
+                    // -Pfukurou.* をすべてシステムプロパティとして渡す（minecraftVersion, paperChannel, acceptEula, outDir …）
+                    val forwarded = providers.gradlePropertiesPrefixedBy("fukurou.")
+                    jvmArgumentProviders.add(
+                        CommandLineArgumentProvider {
+                            // プラグインの JAR は上で決めたパスを 1 回だけ渡す
+                            forwarded.get().filterKeys { it != "fukurou.plugin.minestamp" }.map { (k, v) ->
+                                "-D$k=$v"
+                            } +
+                                "-Dfukurou.plugin.minestamp=${pluginJar.get()}"
+                        }
+                    )
+                    // 既定の出力先と作業ディレクトリ。CI は -Pfukurou.outDir / -Pfukurou.workDir（または FUKUROU_WORK_DIR）で上書きする
+                    systemProperty(
+                        "fukurou.outDir.default",
+                        layout.buildDirectory
+                            .dir("fukurou/out")
+                            .get()
+                            .asFile.absolutePath
+                    )
+                    systemProperty(
+                        "fukurou.workDir.default",
+                        layout.buildDirectory
+                            .dir("fukurou/work")
+                            .get()
+                            .asFile.absolutePath
+                    )
+                    // タグの絞り込み（workflow_dispatch の tags 入力）。選択内容は result.selection にも記録する
+                    providers.gradleProperty("gameTest.tags").orNull?.takeIf(String::isNotBlank)?.let { tags ->
+                        (options as JUnitPlatformOptions).includeTags(*tags.split(',').map(String::trim).toTypedArray())
+                        systemProperty("fukurou.selection.tags", tags)
+                    }
+                    // サーバーのリースとメモリ予算は 1 つの JVM を前提にしている
+                    maxParallelForks = 1
+                    forkEvery = 0
+                    maxHeapSize = "512m"
+                    // 実機テストは入力が同じでも結果が変わるので毎回実行する
+                    outputs.upToDateWhen { false }
+                    // CI の timeout-minutes（30）より短くし、強制終了の前に JUnit の XML と result.json を書き終える
+                    timeout.set(Duration.ofMinutes(25))
+                    testLogging {
+                        showStandardStreams = true
+                        events("passed", "skipped", "failed")
+                        exceptionFormat = TestExceptionFormat.FULL
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -16,8 +16,10 @@ jobs:
         with:
           github-token: '${{ secrets.GITHUB_TOKEN }}'
 
+      # PERSONAL_ACCESS_TOKEN は失効していて 401 になるため、ワークフローの GITHUB_TOKEN で auto-merge を有効にする。
+      # GITHUB_TOKEN によるマージは push イベントのワークフロー（Release Drafter など）を起動しない点に注意
       - name: Enable auto-merge for Dependabot PRs
         run: gh pr merge --auto --merge "$PR_URL"
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
-          GITHUB_TOKEN: ${{secrets.PERSONAL_ACCESS_TOKEN}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}

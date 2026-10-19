@@ -234,9 +234,9 @@ jobs:
       # "stamp-sleeping-face@1.21.11/stamp-arena" のような一覧
       failed-tests: ${{ steps.ui.outputs.failed-tests }}
     steps:
-      # fork からの PR には secret が渡らないため取得しない（fukurou/ui はアップロードを飛ばす）
+      # fork からの PR と Dependabot の実行には secret が渡らないため取得しない（fukurou/ui はアップロードを飛ばす）
       - name: Get S3 credentials from Bitwarden
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        if: ${{ github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         uses: bitwarden/sm-action@v2
         with:
           access_token: ${{ secrets.NIKOMARU_BITWARDEN_SECRET_MANAGER_ACCESS_TOKEN }}

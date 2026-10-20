@@ -55,7 +55,11 @@ class StampArena : GameServerExtension() {
             underTest(PluginSource.systemProperty("minestamp"))
             // スタンプの描画に PacketEvents を使う（plugin.yml の depend）
             dependency(
-                PluginSource.githubRelease("retrooper/packetevents", tag = "v2.14.0", asset = "packetevents-spigot-2.14.0.jar")
+                PluginSource.githubRelease(
+                    "retrooper/packetevents",
+                    tag = "v2.14.0",
+                    asset = "packetevents-spigot-2.14.0.jar"
+                )
             )
         }
         // スタンプのクールダウンは表示 3 秒 + waitSecond 5 秒 = 8 秒。

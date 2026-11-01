@@ -57,12 +57,5 @@
         "yarn": "please use pnpm",
         "npm": "please use pnpm"
     },
-    "packageManager": "pnpm@10.34.5",
-    "pnpm": {
-        "overrides": {
-            "fumadocs-core": "16.17.9",
-            "fumadocs-ui": "16.17.9",
-            "fumadocs-mdx": "15.4.10"
-        }
-    }
+    "packageManager": "pnpm@12.16.1"
 }

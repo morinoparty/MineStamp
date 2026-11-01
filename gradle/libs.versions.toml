@@ -1,21 +1,21 @@
 [versions]
-kotlin = "2.4.20"
-paper = "26.2.build.129-stable"
+kotlin = "2.4.21"
+paper = "26.3.build.236-stable"
 mccoroutine = "2.23.0"
 cloud = "2.2.0-SNAPSHOT"
 cloudPaper = "2.0.1"
 koinVersion = "4.2.2"
 coroutine = "1.11.0"
-serialization = "1.11.0"
-awsSdkS3 = "2.55.3"
+serialization = "1.12.0"
+awsSdkS3 = "2.57.8"
 commonsMath3 = "3.6.1"
 packetevents = "2.14.0"
-javaJwt = "4.6.1"
-mineauthApi = "0.3.12"
+javaJwt = "4.6.2"
+mineauthApi = "0.6.0"
 junit = "6.1.3"
 ktlint = "14.2.0"
 # fukurou の Kotlin ハーネス（JitPack）。JitPack はタグの最初のビルドを永久にキャッシュするので、正確なタグに固定する
-fukurou = "v2.2.0"
+fukurou = "v2.2.1"
 
 [libraries]
 paper-api = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }
@@ -51,7 +51,7 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 dokka = { id = "org.jetbrains.dokka", version = "2.2.0" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
-spotless = { id = "com.diffplug.spotless", version = "8.10.2" }
+spotless = { id = "com.diffplug.spotless", version = "8.10.4" }
 detekt = { id = "dev.detekt", version = "2.0.0-alpha.6" }
 
 [bundles]

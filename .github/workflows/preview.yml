@@ -140,6 +140,9 @@ jobs:
   # S3 アップロードジョブ（JAR・Docs）
   upload-s3:
     needs: [setup, build-gradle, build-docs]
+    # Dependabot の実行と fork からの PR には Actions の secret（Bitwarden のトークン）が渡らないため、アップロードしない。
+    # comment ジョブもこのジョブに依存しているので一緒にスキップされる
+    if: ${{ github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     env:
       COMMIT_SHORT_SHA: ${{ needs.setup.outputs.commit_sha }}

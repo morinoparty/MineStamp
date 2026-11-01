@@ -83,7 +83,7 @@ jobs:
           chmod +x ./gradlew
           ./gradlew shadowJar --no-daemon --console=plain
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: plugin
           path: build/libs/*-all.jar
@@ -160,7 +160,7 @@ jobs:
           ./gradlew "${args[@]}"
 
       # 1 バージョン = 1 artifact。中にサーバーごとの paper-<ver>-<label>/ が入る（fukurou/ui が入れ子を展開する）
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: fukurou-paper-${{ matrix.minecraft-version }}
@@ -169,7 +169,7 @@ jobs:
           retention-days: 7
 
       # 失敗の詳細（スタックトレース）を見るための JUnit の XML。ui の artifact-pattern には一致しない
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: junit-gametest-${{ matrix.minecraft-version }}
@@ -186,7 +186,7 @@ jobs:
         run: echo "$MINECRAFT_VERSION" > "$RUNNER_TEMP/passed-version.txt"
 
       - if: ${{ steps.game-test.outcome == 'success' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: passed-version-${{ matrix.minecraft-version }}
           path: ${{ runner.temp }}/passed-version.txt

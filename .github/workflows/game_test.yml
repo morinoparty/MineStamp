@@ -108,7 +108,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: plugin
           path: ${{ runner.temp }}/plugins
@@ -202,7 +202,7 @@ jobs:
       versions: ${{ steps.collect.outputs.versions }}
     steps:
       # 1つも通らなかった場合は artifact が無いが、空の一覧として扱う
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8.0.2
         continue-on-error: true
         with:
           pattern: passed-version-*

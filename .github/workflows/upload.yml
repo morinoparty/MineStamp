@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v6
 
       # テストに通った JAR をそのまま公開する
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: plugin
           path: ./build/libs

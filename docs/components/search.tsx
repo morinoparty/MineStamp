@@ -1,7 +1,7 @@
 "use client";
-import { create } from "@orama/orama";
-import { createTokenizer } from "@orama/tokenizers/japanese";
-import { stopwords as japaneseStopwords } from "@orama/stopwords/japanese";
+import { create } from "zbsearch";
+import { createTokenizer } from "@zbsearch/tokenizers/japanese";
+import { stopwords as japaneseStopwords } from "@zbsearch/stopwords/japanese";
 import { useDocsSearch } from "fumadocs-core/search/client";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";

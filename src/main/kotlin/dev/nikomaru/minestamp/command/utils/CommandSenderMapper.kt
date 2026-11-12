@@ -12,6 +12,7 @@ package dev.nikomaru.minestamp.command.utils
 import com.mojang.brigadier.LiteralMessage
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType
 import io.papermc.paper.command.brigadier.CommandSourceStack
+import net.kyori.adventure.text.ComponentLike
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.command.CommandSender
@@ -46,6 +47,24 @@ class CommandSenderMapper : SenderMapper<CommandSourceStack, CommandSender> {
             override fun withLocation(location: Location): CommandSourceStack = sender as CommandSourceStack
 
             override fun withExecutor(executor: Entity): CommandSourceStack = sender as CommandSourceStack
+
+            // Paper 26.3 で追加された抽象メソッド。実行者がエンティティならそちらへ、そうでなければ送信者へ返信する
+            override fun sendReply(message: ComponentLike) {
+                (getExecutor() ?: sender).sendMessage(message)
+            }
+
+            // 逆変換したスタックには管理者・コンソールへの通知経路がないため、送信者への通知のみ行う
+            override fun sendSuccess(
+                message: ComponentLike,
+                allowInformingAdmins: Boolean
+            ) {
+                sender.sendMessage(message)
+            }
+
+            // 失敗メッセージも送信者へそのまま送る
+            override fun sendFailure(message: ComponentLike) {
+                sender.sendMessage(message)
+            }
         }
     }
 }

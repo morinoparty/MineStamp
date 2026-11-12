@@ -1,6 +1,6 @@
 "use client";
 import { RootProvider } from "fumadocs-ui/provider/next";
-import type { I18nProviderProps } from "fumadocs-ui/i18n";
+import type { I18nProviderProps } from "fumadocs-ui/contexts/i18n";
 import type { ReactNode } from "react";
 import SearchDialog from "@/components/search";
 

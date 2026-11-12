@@ -14,10 +14,12 @@ export const metadata: Metadata = {
 };
 
 const { provider } = defineI18nUI(i18n, {
-	translations: {
-		ja: { displayName: "日本語", search: "検索" },
-		en: { displayName: "English", search: "Search" },
+	ja: {
+		displayName: "日本語",
+		"Search(search trigger)": "検索",
+		"Search(search dialog)": "検索",
 	},
+	en: { displayName: "English" },
 });
 
 export default async function Layout({

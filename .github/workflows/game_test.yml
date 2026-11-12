@@ -5,8 +5,8 @@ on:
   workflow_dispatch:
     inputs:
       minecraft-versions:
-        description: 'Versions: "latest", "1.21.11", "1.21.6-" or "1.21.6-1.21.11"'
-        default: "1.21.6-"
+        description: 'Versions: "latest", "26.2", "26.2-" or "26.2-26.3"'
+        default: "26.2-"
       tests:
         description: "Test ids (method names) or globs, comma separated. Empty runs everything"
         default: ""
@@ -21,7 +21,7 @@ on:
     inputs:
       minecraft-versions:
         type: string
-        default: "1.21.6-"
+        default: "26.2-"
       tests:
         type: string
         default: ""
@@ -55,8 +55,8 @@ jobs:
       - id: versions
         uses: morinoparty/fukurou/versions@v2
         with:
-          # MineStamp は Java 25 のバイトコードのため、Paper 1.21.4 以前では読み込めない
-          minecraft-version: ${{ inputs.minecraft-versions || '1.21.6-' }}
+          # 26.2 以降を対象にする（テストに通ったバージョンが Modrinth の対応バージョンになる）
+          minecraft-version: ${{ inputs.minecraft-versions || '26.2-' }}
           # 26.3 のように Paper がまだ alpha のバージョンも含めて確認する
           paper-channel: ${{ inputs.paper-channel || 'alpha' }}
 
@@ -231,13 +231,13 @@ jobs:
       uploaded: ${{ steps.ui.outputs.uploaded }}
       # {"total","passed","failed","error","skipped"}: テスト × バージョンの件数
       tests-summary: ${{ steps.ui.outputs.tests-summary }}
-      # "stamp-sleeping-face@1.21.11/stamp-arena" のような一覧
+      # "stamp-sleeping-face@26.2/stamp-arena" のような一覧
       failed-tests: ${{ steps.ui.outputs.failed-tests }}
     steps:
       # fork からの PR と Dependabot の実行には secret が渡らないため取得しない（fukurou/ui はアップロードを飛ばす）
       - name: Get S3 credentials from Bitwarden
         if: ${{ github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
-        uses: bitwarden/sm-action@v2
+        uses: bitwarden/sm-action@v3.0.1
         with:
           access_token: ${{ secrets.NIKOMARU_BITWARDEN_SECRET_MANAGER_ACCESS_TOKEN }}
           secrets: |

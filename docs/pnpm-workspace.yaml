@@ -1,0 +1,8 @@
+allowBuilds:
+  esbuild: true
+
+# fumadocs-core / fumadocs-ui / fumadocs-mdx は互いに対応するバージョンでそろえる
+overrides:
+  fumadocs-core: 16.17.9
+  fumadocs-ui: 16.17.9
+  fumadocs-mdx: 15.4.10

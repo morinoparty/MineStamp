@@ -1,11 +1,11 @@
 "use client";
 
+import { useTranslations } from "@fuma-translate/react";
 import { type BreadcrumbOptions, getBreadcrumbItemsFromPath } from "fumadocs-core/breadcrumb";
 import { usePathname } from "fumadocs-core/framework";
 import Link from "fumadocs-core/link";
 import type * as PageTree from "fumadocs-core/page-tree";
 import { useActiveAnchor } from "fumadocs-core/toc";
-import { useI18n } from "fumadocs-ui/contexts/i18n";
 import { useTreeContext, useTreePath } from "fumadocs-ui/contexts/tree";
 import { useFooterItems } from "fumadocs-ui/utils/use-footer-items";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
@@ -87,7 +87,7 @@ export function PageTOCPopover({ className, children, ...rest }: ComponentProps<
 }
 
 export function PageTOCPopoverTrigger({ className, ...props }: ComponentProps<"button">) {
-    const { text } = useI18n();
+    const t = useTranslations({ note: "table of contents" });
     const tocContext = use(TocPopoverContext);
     const open = tocContext?.open ?? false;
     const items = useTOCItems();
@@ -118,7 +118,7 @@ export function PageTOCPopoverTrigger({ className, ...props }: ComponentProps<"b
                         showItem && "opacity-0 -translate-y-full pointer-events-none",
                     )}
                 >
-                    {path?.name ?? text.toc}
+                    {path?.name ?? t("On this page")}
                 </span>
                 <span
                     className={cn(
@@ -204,7 +204,7 @@ export function PageTOCPopoverContent(props: ComponentProps<"div">) {
 }
 
 export function PageLastUpdate({ date: value, ...props }: Omit<ComponentProps<"p">, "children"> & { date: Date }) {
-    const { text } = useI18n();
+    const t = useTranslations({ note: "page footer" });
     const [date, setDate] = useState("");
 
     useEffect(() => {
@@ -214,7 +214,7 @@ export function PageLastUpdate({ date: value, ...props }: Omit<ComponentProps<"p
 
     return (
         <p {...props} className={cn("text-sm text-fd-muted-foreground", props.className)}>
-            {text.lastUpdate} {date}
+            {t("Last updated on")} {date}
         </p>
     );
 }
@@ -260,7 +260,7 @@ export function PageFooter({ items, children, className, ...props }: FooterProps
 }
 
 function FooterItem({ item, index }: { item: Item; index: 0 | 1 }) {
-    const { text } = useI18n();
+    const t = useTranslations({ note: "pagination" });
     const Icon = index === 0 ? ChevronLeft : ChevronRight;
 
     return (
@@ -276,7 +276,7 @@ function FooterItem({ item, index }: { item: Item; index: 0 | 1 }) {
                 <p>{item.name}</p>
             </div>
             <p className="text-fd-muted-foreground truncate">
-                {item.description ?? (index === 0 ? text.previousPage : text.nextPage)}
+                {item.description ?? (index === 0 ? t("Previous Page") : t("Next Page"))}
             </p>
         </Link>
     );

@@ -12,6 +12,7 @@ package dev.nikomaru.minestamp.command.utils
 import com.mojang.brigadier.LiteralMessage
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType
 import io.papermc.paper.command.brigadier.CommandSourceStack
+import net.kyori.adventure.text.ComponentLike
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.command.CommandSender
@@ -33,6 +34,18 @@ class CommandSenderMapper : SenderMapper<CommandSourceStack, CommandSender> {
             }
 
             override fun getSender(): CommandSender = sender
+
+            override fun sendReply(message: ComponentLike) {
+                sender.sendMessage(message)
+            }
+
+            override fun sendSuccess(message: ComponentLike, allowLogging: Boolean) {
+                sender.sendMessage(message)
+            }
+
+            override fun sendFailure(message: ComponentLike) {
+                sender.sendMessage(message)
+            }
 
             override fun getExecutor(): Entity? = sender as? Entity
 

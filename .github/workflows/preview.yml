@@ -213,7 +213,8 @@ jobs:
   comment:
     needs: [setup, build-gradle, upload-s3]
     runs-on: ubuntu-latest
-    if: ${{ github.event.action == 'opened' || github.event.action == 'synchronize' }}
+    # Dependabot の実行には Actions の secret が渡らないため、プレビューコメントを作成しない。
+    if: ${{ github.actor != 'dependabot[bot]' && (github.event.action == 'opened' || github.event.action == 'synchronize') }}
     env:
       COMMIT_SHORT_SHA: ${{ needs.setup.outputs.commit_sha }}
     steps:

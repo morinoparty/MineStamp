@@ -111,7 +111,7 @@ tasks {
     }
     runServer {
         // `-PmcVersion=1.21.11` のように起動するMinecraftバージョンを切り替えられるようにする
-        val mcVersion = providers.gradleProperty("mcVersion").getOrElse("26.2")
+        val mcVersion = providers.gradleProperty("mcVersion").getOrElse("26.3")
         minecraftVersion(mcVersion)
         // バージョンごとにワールド等が混ざらないよう実行ディレクトリを分ける
         runDirectory.set(layout.projectDirectory.dir("run/$mcVersion"))

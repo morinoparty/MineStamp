@@ -8,7 +8,7 @@ jobs:
     # fonts-* タグは絵文字フォント配布用のリリースのため、プラグインの公開は行わない
     if: ${{ !startsWith(github.event.release.tag_name, 'fonts-') }}
     uses: ./.github/workflows/game_test.yml
-    # deploy ジョブがビューアの公開に Bitwarden / S3 の secret を使う
+    # deploy ジョブがビューアの公開に S3 の secret を使う
     secrets: inherit
     # 呼び出し先の preview ジョブが pull-requests: write を宣言しているため、ここでも許可しておく (release では実行されない)
     permissions:

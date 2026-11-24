@@ -312,3 +312,15 @@ jobs:
               gh("pr", "comment", pr, "--repo", repo, "--body", f"### 🦉 In-game screenshots\n{section}")
               print("Preview comment not found; posted a separate comment")
           PY
+  required:
+    name: required
+    needs: [versions, build, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every game test version must pass
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")'

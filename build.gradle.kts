@@ -75,6 +75,9 @@ dependencies {
     compileOnly(libs.mineauth.api)
 
     testImplementation(libs.junit.jupiter)
+    // StampHandler のテストで Principal.User や Player を扱うため、実行時に提供される API をテストにも載せる
+    testImplementation(libs.paper.api)
+    testImplementation(libs.mineauth.api)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

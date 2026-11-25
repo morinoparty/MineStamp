@@ -57,10 +57,15 @@ class StampHandler : KoinComponent {
                 stampManager.getPlayerStamp(onlinePlayer)
             } else {
                 // オフラインの場合はメモリ上のデータ（最終ログイン時にロード済み）から取得する
+                // HttpErrorの引数は省略せずに全て渡す。省略するとデフォルト引数用の合成コンストラクタ
+                // (kotlin.jvm.internal.DefaultConstructorMarkerを含む)が呼ばれ、MineStampとMineAuthで
+                // Kotlin標準ライブラリのクラスローダーが異なるためLinkageErrorになる
                 val stored =
                     stampManager.playerEmoji[caller.uuid] ?: throw HttpError(
                         HttpStatus.NOT_FOUND,
-                        "Stamp data is not loaded for this player. Join the server at least once after a restart."
+                        "Stamp data is not loaded for this player. Join the server at least once after a restart.",
+                        "stamp_data_not_loaded",
+                        emptyMap()
                     )
                 stored + get<PlayerDefaultEmojiConfigData>().defaultStamps
             }

@@ -11,8 +11,10 @@ package dev.nikomaru.minestamp.api.handler
 
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import java.io.File
 
 /**
  * MineAuth APIの呼び出しがクラスローダーをまたいで解決できることを確認するテスト
@@ -25,12 +27,23 @@ class StampHandlerLinkageTest {
     @Test
     @DisplayName("StampHandler does not call default-argument synthetic constructors")
     fun doesNotReferenceDefaultConstructorMarker() {
-        // コンパイル済みのクラスファイルを読み、定数プールの文字列を検索する
-        val bytes = StampHandler::class.java.getResourceAsStream("StampHandler.class")?.use { it.readBytes() }
-        assertNotNull(bytes)
+        // suspend関数やラムダの本体は StampHandler$... の別クラスにコンパイルされるため、それらも含めて検索する
+        val packageDir =
+            File(
+                StampHandler::class.java
+                    .getResource("StampHandler.class")!!
+                    .toURI()
+            ).parentFile
+        val classFiles = packageDir.listFiles { file -> file.name.matches(Regex("""StampHandler(\$.*)?\.class""")) }
+        assertNotNull(classFiles)
+        assertTrue(classFiles!!.isNotEmpty())
 
-        // クラスファイルの定数プールはUTF-8系の文字列で格納されるため、ISO-8859-1でそのまま文字列化して検索する
-        val content = String(bytes!!, Charsets.ISO_8859_1)
-        assertFalse(content.contains("kotlin/jvm/internal/DefaultConstructorMarker"))
+        classFiles.forEach { classFile ->
+            // クラスファイルの定数プールはUTF-8系の文字列で格納されるため、ISO-8859-1でそのまま文字列化して検索する
+            val content = String(classFile.readBytes(), Charsets.ISO_8859_1)
+            assertFalse(content.contains("kotlin/jvm/internal/DefaultConstructorMarker")) {
+                "${classFile.name} references DefaultConstructorMarker"
+            }
+        }
     }
 }

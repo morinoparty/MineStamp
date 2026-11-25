@@ -19,12 +19,17 @@ import org.bukkit.entity.Player
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.component.inject
+import java.io.File
 import java.util.*
+import java.util.logging.Logger
 
 class LocalPlayerStampManager :
     AbstractPlayerStampManager(),
     KoinComponent {
     val plugin: MineStamp by inject()
+
+    override val logger: Logger
+        get() = plugin.logger
 
     override fun init(player: Player) {
         val file = plugin.dataFolder.resolve("player").resolve("${player.uniqueId}.json")
@@ -105,6 +110,9 @@ class LocalPlayerStampManager :
             }.toMap()
     }
 
+    override fun readStoredShortCodes(uuid: UUID): List<String> =
+        readShortCodes(plugin.dataFolder.resolve("player"), uuid)
+
     override fun savePlayerData(
         uuid: UUID,
         shortCodes: List<String>
@@ -114,5 +122,25 @@ class LocalPlayerStampManager :
         org.bukkit.Bukkit
             .getPlayer(uuid)
             ?.let { store(it, shortCodes, plugin.logger) }
+    }
+
+    companion object {
+        /**
+         * プレイヤーデータのディレクトリから指定プレイヤーの生shortCodeを読み取る（書き込みはしない）。
+         *
+         * @param playerDir プレイヤーデータのディレクトリ（plugins/MineStamp/player）
+         * @param uuid 対象プレイヤーのUUID
+         * @return 保存済みの生shortCode。ファイルがなければ空リスト
+         * @throws Exception ファイルが読めない・JSONが壊れている場合
+         */
+        fun readShortCodes(
+            playerDir: File,
+            uuid: UUID
+        ): List<String> {
+            val file = playerDir.resolve("$uuid.json")
+            // 一度もログインしていないプレイヤーはファイル自体がないため、所持スタンプなしとして扱う
+            if (!file.exists()) return emptyList()
+            return json.decodeFromString(PlayerData.serializer(), file.readText()).emoji
+        }
     }
 }

@@ -17,6 +17,9 @@ import dev.nikomaru.minestamp.config.PlayerDefaultEmojiConfigData
 import dev.nikomaru.minestamp.data.ImageListData
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.Stamp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import party.morino.mineauth.api.annotations.Authenticated
@@ -27,6 +30,8 @@ import party.morino.mineauth.api.auth.Principal
 import party.morino.mineauth.api.http.HttpError
 import party.morino.mineauth.api.http.HttpStatus
 import java.util.Properties
+import java.util.UUID
+import java.util.logging.Level
 
 /**
  * MineAuth経由でスタンプ情報を提供するハンドラー
@@ -38,8 +43,9 @@ class StampHandler : KoinComponent {
      * GET /stamps
      *
      * デフォルトスタンプ（全員に配布されるもの）も含めて返す。
-     * プレイヤーがオフラインで、かつサーバー起動後に一度もログインしていない場合は
-     * スタンプデータが未ロードのため404を返す。
+     * サーバー起動後に一度もログインしていない（メモリ上にデータがない）プレイヤーは、
+     * 保存済みのデータをストレージから読み取り専用で読み込む。保存データがなければデフォルトスタンプのみを返す。
+     * ストレージの読み込みに失敗した場合は503を返す。
      *
      * @param caller 認証済み呼び出し元プレイヤー
      * @return 所持スタンプ一覧
@@ -50,31 +56,53 @@ class StampHandler : KoinComponent {
         @Caller caller: Principal.User
     ): PlayerStampsResponse {
         val stampManager = get<AbstractPlayerStampManager>()
-        val onlinePlayer = caller.onlinePlayer
 
-        val stamps: List<Stamp> =
-            if (onlinePlayer != null) {
-                stampManager.getPlayerStamp(onlinePlayer)
-            } else {
-                // オフラインの場合はメモリ上のデータ（最終ログイン時にロード済み）から取得する
+        // ログイン時にロード済みならメモリ上のデータを使う（オンラインのプレイヤーはaddStamp等で常に最新）
+        // 未ロードならストレージから読む。メモリには書き込まないので、後のログイン時のロードや保存とは競合しない
+        val owned: List<Stamp> =
+            stampManager.playerEmoji[caller.uuid]
+                ?: readStoredStamps(stampManager, caller.uuid)
                 // HttpErrorの引数は省略せずに全て渡す。省略するとデフォルト引数用の合成コンストラクタ
                 // (kotlin.jvm.internal.DefaultConstructorMarkerを含む)が呼ばれ、MineStampとMineAuthで
                 // Kotlin標準ライブラリのクラスローダーが異なるためLinkageErrorになる
-                val stored =
-                    stampManager.playerEmoji[caller.uuid] ?: throw HttpError(
-                        HttpStatus.NOT_FOUND,
-                        "Stamp data is not loaded for this player. Join the server at least once after a restart.",
-                        "stamp_data_not_loaded",
-                        emptyMap()
-                    )
-                stored + get<PlayerDefaultEmojiConfigData>().defaultStamps
-            }
+                ?: throw HttpError(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Stamp storage is unavailable. Try again later.",
+                    "stamp_storage_unavailable",
+                    emptyMap()
+                )
 
+        val stamps = owned + get<PlayerDefaultEmojiConfigData>().defaultStamps
         return PlayerStampsResponse(
             uuid = caller.uuid.toString(),
             stamps = stamps.map { StampData.from(it) }.distinctBy { it.shortCode }
         )
     }
+
+    /**
+     * ストレージから所持スタンプを読み取り専用で読み込む
+     *
+     * ファイルI/OやS3通信を伴うため、メインスレッドを避けてIOディスパッチャーで実行する。
+     * HttpErrorの生成は呼び出し元で行い、ここでは失敗をnullで返すだけにする。
+     *
+     * @param stampManager プレイヤースタンプの管理クラス
+     * @param uuid 対象プレイヤーのUUID
+     * @return 所持スタンプ一覧（保存データがなければ空）。ストレージの読み込みに失敗した場合はnull
+     */
+    private suspend fun readStoredStamps(
+        stampManager: AbstractPlayerStampManager,
+        uuid: UUID
+    ): List<Stamp>? =
+        try {
+            withContext(Dispatchers.IO) { stampManager.readStoredStamps(uuid) }
+        } catch (e: CancellationException) {
+            // コルーチンのキャンセルは握りつぶさずに伝播させる
+            throw e
+        } catch (e: Exception) {
+            // ストレージ障害は「データなし」と区別し、原因をログに残してから503にする
+            stampManager.logger.log(Level.WARNING, "failed to read stored stamps of $uuid", e)
+            null
+        }
 
     /**
      * サーバーに存在する全スタンプの一覧を取得する

@@ -25,11 +25,15 @@ import org.koin.core.component.get
 import org.koin.core.component.inject
 import software.amazon.awssdk.core.sync.RequestBody
 import java.util.UUID
+import java.util.logging.Logger
 
 class S3PlayerStampManager :
     AbstractPlayerStampManager(),
     KoinComponent {
     val plugin: MineStamp by inject()
+
+    override val logger: Logger
+        get() = plugin.logger
 
     override fun init(player: Player) {
         val s3Client = getS3Client()
@@ -138,6 +142,15 @@ class S3PlayerStampManager :
                     )
                 uuid to data.emoji
             }.toMap()
+    }
+
+    override fun readStoredShortCodes(uuid: UUID): List<String> {
+        val s3Client = getS3Client()
+        val bucketName = get<LocalConfig>().s3Config!!.bucket
+        val key = "player/$uuid.json"
+        // オブジェクトがない場合のみ空扱いにする。それ以外のS3エラーはobjectExistsが例外として投げる
+        if (!s3Client.objectExists(bucketName, key)) return emptyList()
+        return json.decodeFromString(PlayerData.serializer(), s3Client.getObjectAsString(bucketName, key)).emoji
     }
 
     override fun savePlayerData(

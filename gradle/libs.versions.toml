@@ -11,7 +11,7 @@ awsSdkS3 = "2.59.7"
 commonsMath3 = "3.6.1"
 packetevents = "2.14.0"
 javaJwt = "4.6.2"
-mineauthApi = "0.3.14"
+mineauthApi = "0.7.0"
 junit = "6.1.3"
 ktlint = "14.2.0"
 # fukurou の Kotlin ハーネス（JitPack）。JitPack はタグの最初のビルドを永久にキャッシュするので、正確なタグに固定する

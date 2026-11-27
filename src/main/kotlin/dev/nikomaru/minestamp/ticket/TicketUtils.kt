@@ -15,12 +15,15 @@ import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.stamp.EmojiStamp
 import dev.nikomaru.minestamp.stamp.Stamp
 import dev.nikomaru.minestamp.stamp.StampManager
+import dev.nikomaru.minestamp.stamp.name.EmojiNameRegistry
+import dev.nikomaru.minestamp.utils.LangUtils
 import dev.nikomaru.minestamp.utils.LangUtils.i18nComponent
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import org.koin.core.component.inject
 
 object TicketUtils : KoinComponent {
@@ -58,14 +61,20 @@ object TicketUtils : KoinComponent {
             } else {
                 i18nComponent("minestamp.type-image")
             }
-        val preview = if (stamp is EmojiStamp) stamp.char else ""
+        // アイテム名・loreはクライアントで翻訳されないため、名前はサーバーの既定ロケールで選ぶ
+        val names = get<EmojiNameRegistry>()
+        val locale = LangUtils.serverLocale
+        val name = names.name(stamp.shortCode, locale, locale)
+        // 例: "🍕 ピザ"。名前がなければ従来どおり絵文字のみ
+        val preview = if (stamp is EmojiStamp) listOfNotNull(stamp.char, name).joinToString(" ") else ""
 
         meta.displayName(i18nComponent("minestamp.emoji-ticket", preview))
         meta.lore(
             listOf(
                 i18nComponent("minestamp.get-stamp-by-right-click"),
                 i18nComponent("minestamp.stamp-type", type),
-                i18nComponent("minestamp.stamp-shortcode", stamp.shortCode)
+                // 例: "ピザ (:pizza:)"。shortCodeも残して管理者がコマンドで使えるようにする
+                i18nComponent("minestamp.stamp-shortcode", names.label(stamp.shortCode, locale, locale))
             )
         )
         val namespaceKey = NamespacedKey(plugin, "ticket")

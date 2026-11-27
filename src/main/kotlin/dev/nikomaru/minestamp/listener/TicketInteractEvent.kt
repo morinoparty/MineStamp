@@ -13,9 +13,12 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import dev.nikomaru.minestamp.MineStamp
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
+import dev.nikomaru.minestamp.stamp.EmojiStamp
 import dev.nikomaru.minestamp.stamp.StampManager
+import dev.nikomaru.minestamp.stamp.name.EmojiNameRegistry
 import dev.nikomaru.minestamp.ticket.RSAUtils
 import dev.nikomaru.minestamp.ticket.TicketUtils
+import dev.nikomaru.minestamp.utils.LangUtils
 import dev.nikomaru.minestamp.utils.LangUtils.sendI18nRichMessage
 import kotlinx.coroutines.delay
 import org.bukkit.Material
@@ -84,7 +87,12 @@ class TicketInteractEvent :
                 item.amount -= 1
                 event.hand?.let { player.inventory.setItem(it, item) }
                 playerStampManager.addStamp(player, stamp)
-                player.sendI18nRichMessage("minestamp.available-stamp", stamp.shortCode)
+                // 例: "🍕 ピザ (:pizza:)"。名前はプレイヤーのロケールで選ぶ
+                val label = get<EmojiNameRegistry>().label(stamp.shortCode, player.locale(), LangUtils.serverLocale)
+                player.sendI18nRichMessage(
+                    "minestamp.available-stamp",
+                    if (stamp is EmojiStamp) "${stamp.char} $label" else label
+                )
             }
             else -> {
                 player.sendI18nRichMessage("minestamp.invalid-ticket")

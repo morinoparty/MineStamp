@@ -11,7 +11,11 @@ package dev.nikomaru.minestamp.command
 
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.EmojiStamp
+import dev.nikomaru.minestamp.stamp.Stamp
+import dev.nikomaru.minestamp.stamp.name.EmojiNameRegistry
+import dev.nikomaru.minestamp.utils.LangUtils
 import dev.nikomaru.minestamp.utils.LangUtils.sendI18nRichMessage
+import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.incendo.cloud.annotations.Argument
@@ -57,19 +61,22 @@ class PlayerUtilCommand : KoinComponent {
     ) {
         actor.sendI18nRichMessage("minestamp.current-emoji-list")
         val playerStampManager: AbstractPlayerStampManager = get<AbstractPlayerStampManager>()
-        val list = playerStampManager.getPlayerStamp(actor)
-        list.sortBy { it.shortCode }
+        val names = get<EmojiNameRegistry>()
+        val miniMessage = MiniMessage.miniMessage()
+        // よく使われる絵文字から順に並べ、画像スタンプは後ろにまとめる
+        val byPopularity = compareBy<Stamp, String>(names.popularityComparator) { it.shortCode }
+        val list = playerStampManager.getPlayerStamp(actor).sortedWith(byPopularity)
         // クリックで /stamp コマンドを入力欄に補完できるようにする
         val message =
             list.chunked(resetCount.coerceAtLeast(1)).joinToString("\n") { row ->
                 row.joinToString("<gray> | </gray>") { stamp ->
-                    val label =
-                        if (stamp is EmojiStamp) {
-                            "${stamp.char} <aqua>${stamp.shortCode}</aqua>"
-                        } else {
-                            "<aqua>${stamp.shortCode}</aqua>"
-                        }
-                    "<click:suggest_command:'/stamp ${stamp.shortCode}'><hover:show_text:'/stamp ${stamp.shortCode}'>$label</hover></click>"
+                    // 名前はプレイヤーのロケールで選ぶ。名前に < などが含まれてもタグとして解釈されないようエスケープする
+                    val name = names.name(stamp.shortCode, actor.locale(), LangUtils.serverLocale)
+                    val text = miniMessage.escapeTags(name ?: stamp.shortCode)
+                    val label = if (stamp is EmojiStamp) "${stamp.char} <aqua>$text</aqua>" else "<aqua>$text</aqua>"
+                    // shortCodeはホバーに出し、名前がわからなくてもコマンドで使う値を確認できるようにする
+                    "<click:suggest_command:'/stamp ${stamp.shortCode}'>" +
+                        "<hover:show_text:'${stamp.shortCode}<newline>/stamp ${stamp.shortCode}'>$label</hover></click>"
                 }
             }
         actor.sendRichMessage(message)

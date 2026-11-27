@@ -26,6 +26,7 @@ import dev.nikomaru.minestamp.listener.TicketInteractEvent
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.player.LocalPlayerStampManager
 import dev.nikomaru.minestamp.player.S3PlayerStampManager
+import dev.nikomaru.minestamp.stamp.name.EmojiNameRegistry
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
@@ -62,7 +63,18 @@ open class MineStamp :
                     .getResourceAsStream("emoji.properties")
                     .use { load(it) }
             }
-        loadKoinModules(module { single { emojiProperties } })
+        // 絵文字スタンプの名前・並び順の対応表（scripts/emoji-names で生成し、リソースに同梱している）
+        val emojiNames =
+            plugin.javaClass.classLoader
+                .getResourceAsStream(EmojiNameRegistry.RESOURCE_NAME)
+                .let { checkNotNull(it) { "${EmojiNameRegistry.RESOURCE_NAME} is missing from the plugin jar" } }
+                .use { EmojiNameRegistry.load(it) }
+        loadKoinModules(
+            module {
+                single { emojiProperties }
+                single { emojiNames }
+            }
+        )
         logger.info("command setting")
         setCommand()
         logger.info("config setting")

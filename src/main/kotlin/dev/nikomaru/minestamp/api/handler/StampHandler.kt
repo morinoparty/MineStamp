@@ -12,11 +12,11 @@ package dev.nikomaru.minestamp.api.handler
 import dev.nikomaru.minestamp.api.model.AllStampsResponse
 import dev.nikomaru.minestamp.api.model.PlayerStampsResponse
 import dev.nikomaru.minestamp.api.model.StampData
-import dev.nikomaru.minestamp.api.model.StampType
 import dev.nikomaru.minestamp.config.PlayerDefaultEmojiConfigData
 import dev.nikomaru.minestamp.data.ImageListData
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.Stamp
+import dev.nikomaru.minestamp.stamp.name.EmojiNameRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,7 +42,7 @@ class StampHandler : KoinComponent {
      * 認証済みプレイヤー自身の所持スタンプ一覧を取得する
      * GET /stamps
      *
-     * デフォルトスタンプ（全員に配布されるもの）も含めて返す。
+     * デフォルトスタンプ（全員に配布されるもの）も含めて、よく使われる順（[StampData.POPULARITY_ORDER]）で返す。
      * サーバー起動後に一度もログインしていない（メモリ上にデータがない）プレイヤーは、
      * 保存済みのデータをストレージから読み取り専用で読み込む。保存データがなければデフォルトスタンプのみを返す。
      * ストレージの読み込みに失敗した場合は503を返す。
@@ -72,10 +72,15 @@ class StampHandler : KoinComponent {
                     emptyMap()
                 )
 
+        val names = get<EmojiNameRegistry>()
         val stamps = owned + get<PlayerDefaultEmojiConfigData>().defaultStamps
         return PlayerStampsResponse(
             uuid = caller.uuid.toString(),
-            stamps = stamps.map { StampData.from(it) }.distinctBy { it.shortCode }
+            stamps =
+                stamps
+                    .map { StampData.of(it.shortCode, names) }
+                    .distinctBy { it.shortCode }
+                    .sortedWith(StampData.POPULARITY_ORDER)
         )
     }
 
@@ -108,7 +113,8 @@ class StampHandler : KoinComponent {
      * サーバーに存在する全スタンプの一覧を取得する
      * GET /stamps/all
      *
-     * 絵文字スタンプ（emoji.properties由来）と画像スタンプ（image配下）を合わせて返す
+     * 絵文字スタンプ（emoji.properties由来）と画像スタンプ（image配下）を合わせて返す。
+     * 絵文字スタンプをよく使われる順に先に、画像スタンプをshortCode順で後ろに並べる
      *
      * @return 全スタンプ一覧
      */
@@ -116,19 +122,14 @@ class StampHandler : KoinComponent {
     @Public(reason = "Stamp catalog contains no player data")
     suspend fun getAllStamps(): AllStampsResponse {
         val emojiProperties = get<Properties>()
-        val emojiStamps =
-            emojiProperties.stringPropertyNames().map { shortCode ->
-                StampData(shortCode = shortCode, type = StampType.EMOJI)
-            }
+        val names = get<EmojiNameRegistry>()
+        val emojiStamps = emojiProperties.stringPropertyNames().toList()
 
         // 画像一覧は非同期でロードされるため、未ロードの場合は空扱いにする
-        val imageStamps =
-            getKoin().getOrNull<ImageListData>()?.list?.map { name ->
-                StampData(shortCode = "!$name", type = StampType.IMAGE)
-            } ?: emptyList()
+        val imageStamps = getKoin().getOrNull<ImageListData>()?.list?.map { name -> "!$name" } ?: emptyList()
 
         return AllStampsResponse(
-            stamps = (emojiStamps + imageStamps).sortedBy { it.shortCode }
+            stamps = (emojiStamps + imageStamps).map { StampData.of(it, names) }.sortedWith(StampData.POPULARITY_ORDER)
         )
     }
 }

@@ -37,6 +37,9 @@ object LangUtils : KoinComponent {
     private var store: MiniMessageTranslationStore? = null
     private var defaultLocale: Locale = Locale.US
 
+    /** サーバーの既定ロケール（config の lang）。プレイヤーごとに翻訳されない場所や未対応言語の代わりに使う */
+    val serverLocale: Locale get() = defaultLocale
+
     fun CommandSender.sendI18nRichMessage(
         key: String,
         vararg args: Any

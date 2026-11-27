@@ -1,0 +1,12 @@
+{
+    "name": "minestamp-emoji-names",
+    "private": true,
+    "type": "module",
+    "description": "Generates src/main/resources/emoji-names.json from emoji.properties, emojibase-data and the Unicode emoji frequency ranking",
+    "scripts": {
+        "generate": "node generate.mjs"
+    },
+    "devDependencies": {
+        "emojibase-data": "18.0.0"
+    }
+}

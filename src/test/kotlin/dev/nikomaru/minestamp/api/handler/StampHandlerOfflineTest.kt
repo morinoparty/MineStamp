@@ -14,12 +14,14 @@ import dev.nikomaru.minestamp.font.CbdtEmojiFont
 import dev.nikomaru.minestamp.font.EmojiFont
 import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.Stamp
+import dev.nikomaru.minestamp.stamp.name.EmojiNameRegistry
 import kotlinx.coroutines.runBlocking
 import org.bukkit.OfflinePlayer
 import org.bukkit.entity.Player
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -42,8 +44,8 @@ import java.util.logging.Logger
 class StampHandlerOfflineTest {
     private val uuid: UUID = UUID.fromString("3c6d9e2a-0000-4000-8000-000000000abc")
 
-    // 既定のデフォルトスタンプ（:cucumber: :thinking-face: :angry-face: :sleeping-face:）
-    private val defaultCodes = PlayerDefaultEmojiConfigData().defaultEmoji
+    // 既定のデフォルトスタンプ（:cucumber: :thinking-face: :angry-face: :sleeping-face:）をよく使われる順に並べたもの
+    private val defaultCodes = listOf(":thinking-face:", ":sleeping-face:", ":angry-face:", ":cucumber:")
 
     private lateinit var stampManager: FakeStampManager
 
@@ -52,11 +54,13 @@ class StampHandlerOfflineTest {
         stampManager = FakeStampManager()
         val emojiProperties = Properties().apply { resource("emoji.properties").use { load(it) } }
         val emojiFont = CbdtEmojiFont(resource("FluentEmojiColor-CBDT.ttf").use { it.readBytes() })
+        val emojiNames = resource(EmojiNameRegistry.RESOURCE_NAME).use { EmojiNameRegistry.load(it) }
         // 本番と同じくKoinから絵文字定義・フォント・デフォルトスタンプ・スタンプ管理クラスを取得させる
         startKoin {
             modules(
                 module {
                     single { emojiProperties }
+                    single { emojiNames }
                     single<EmojiFont> { emojiFont }
                     single { PlayerDefaultEmojiConfigData() }
                     single<AbstractPlayerStampManager> { stampManager }
@@ -71,15 +75,24 @@ class StampHandlerOfflineTest {
     }
 
     @Test
-    @DisplayName("Offline player not loaded since restart gets their stored stamps plus defaults")
+    @DisplayName("Offline player not loaded since restart gets stored stamps plus defaults by popularity")
     fun offlinePlayerWithStoredStamps() {
         stampManager.stored[uuid] = listOf(":grinning-face-with-big-eyes:", ":cucumber:")
 
         val response = runBlocking { StampHandler().getOwnStamps(OfflineCaller(uuid)) }
 
         assertEquals(uuid.toString(), response.uuid)
-        // 所持スタンプの後にデフォルトスタンプが続き、重複（:cucumber:）は1件にまとめる
-        assertEquals(listOf(":grinning-face-with-big-eyes:") + defaultCodes, response.stamps.map { it.shortCode })
+        // 所持スタンプとデフォルトスタンプをよく使われる順に並べ、重複（:cucumber:）は1件にまとめる
+        assertEquals(
+            listOf(":thinking-face:", ":grinning-face-with-big-eyes:", ":sleeping-face:", ":angry-face:", ":cucumber:"),
+            response.stamps.map { it.shortCode }
+        )
+        // 絵文字スタンプには絵文字・名前・並び順が付く
+        val grinning = response.stamps.single { it.shortCode == ":grinning-face-with-big-eyes:" }
+        assertEquals("😃", grinning.emoji)
+        assertEquals("わーい", grinning.nameJa)
+        assertEquals("grinning face with big eyes", grinning.nameEn)
+        assertNotNull(grinning.sortOrder)
         // 読み取り専用なので、ログイン時にロードされるメモリ上のデータには書き込まない
         assertFalse(stampManager.playerEmoji.containsKey(uuid))
     }

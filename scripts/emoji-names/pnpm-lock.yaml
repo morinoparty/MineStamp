@@ -1,0 +1,32 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    devDependencies:
+      emojibase-data:
+        specifier: 18.0.0
+        version: 18.0.0(emojibase@18.0.0)
+
+packages:
+
+  emojibase-data@18.0.0:
+    resolution: {integrity: sha512-TPPRRYv2zPd0jKI+pTpMquwWNZXYAsC3IVsCMeg2X8y8fEzKwOks4/5bz0YavF5r6d71aGPpb6oDnUEwSLLMoA==}
+    peerDependencies:
+      emojibase: '*'
+
+  emojibase@18.0.0:
+    resolution: {integrity: sha512-5PG+EEt5zQ9qvqdHZw61+T9iz96g+r621QS/w8jEzPg+3mjzAdjl8LPLc+e9ABv/yboNfMwEair7aK9qKnwAbQ==}
+    engines: {node: '>=20.0.0'}
+
+snapshots:
+
+  emojibase-data@18.0.0(emojibase@18.0.0):
+    dependencies:
+      emojibase: 18.0.0
+
+  emojibase@18.0.0: {}

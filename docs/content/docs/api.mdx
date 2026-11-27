@@ -1,0 +1,70 @@
+---
+title: 🔌 HTTP API
+description: MineAuth 経由で提供するスタンプ情報の API
+---
+
+## 🧭 概要
+
+サーバーに [MineAuth](https://github.com/morinoparty/MineAuth) が導入されている場合、MineStamp はスタンプ情報を返す HTTP API を `/api/v1/plugins/minestamp` 配下に登録します。
+MineAuth が無い場合、API は登録されません。
+
+| メソッド | パス | 認証 | 内容 |
+| --- | --- | --- | --- |
+| GET | `/stamps` | 必要 | 認証したプレイヤーの所持スタンプ (デフォルトスタンプを含む) |
+| GET | `/stamps/all` | 不要 | サーバーに存在する全スタンプ |
+
+## 📦 レスポンス
+
+`/stamps` は `{ "uuid": string, "stamps": StampData[] }`、`/stamps/all` は `{ "stamps": StampData[] }` を返します。
+
+### StampData
+
+| フィールド | 型 | 内容 |
+| --- | --- | --- |
+| `shortCode` | string | スタンプのショートコード。`/stamp` コマンドの引数に使う値です (例: `:pizza:`、`!logo.png`) |
+| `type` | `"EMOJI"` \| `"IMAGE"` | スタンプの種別 |
+| `emoji` | string \| null | 完全修飾 (FE0F 付き) の絵文字 (例: `🍕`) |
+| `nameJa` | string \| null | 日本語名 (例: `ピザ`) |
+| `nameEn` | string \| null | 英語名 (例: `pizza`) |
+| `sortOrder` | number \| null | よく使われる順の並び順。0 が最も多く使われる絵文字です |
+
+`emoji`・`nameJa`・`nameEn`・`sortOrder` は後から追加したフィールドです。
+絵文字スタンプにだけ値が入り、画像スタンプでは `null` になります (MineAuth のシリアライズ設定によっては省略されます)。
+既存のフィールド (`shortCode`・`type`) の意味は変わっていないため、追加したフィールドを読まないクライアントはそのまま動作します。
+
+```json
+{
+  "stamps": [
+    { "shortCode": ":thinking-face:", "type": "EMOJI", "emoji": "🤔", "nameJa": "考える顔", "nameEn": "thinking face", "sortOrder": 34 },
+    { "shortCode": ":cucumber:", "type": "EMOJI", "emoji": "🥒", "nameJa": "キュウリ", "nameEn": "cucumber", "sortOrder": 1026 },
+    { "shortCode": "!logo.png", "type": "IMAGE", "emoji": null, "nameJa": null, "nameEn": null, "sortOrder": null }
+  ]
+}
+```
+
+### 並び順
+
+どちらの API も、絵文字スタンプを `sortOrder` の昇順 (よく使われる順) で先に、画像スタンプをショートコード順で後ろに並べて返します。
+
+## 🗂️ 絵文字の名前と並び順の対応表
+
+名前と並び順は、プラグインに同梱した `src/main/resources/emoji-names.json` から引きます。
+この表は `scripts/emoji-names/generate.mjs` が次のデータから生成し、リポジトリにコミットしています。Gradle のビルド中には生成しないため、ビルドに Node.js やネットワークは不要です。
+
+- `src/main/resources/emoji.properties` (MineStamp の絵文字定義)
+- [emojibase-data](https://emojibase.dev/) (CLDR の日本語名・英語名と、完全修飾の絵文字)
+- `scripts/emoji-names/data/unicode-emoji-frequency-2019.txt` ([Unicode の絵文字使用頻度](https://home.unicode.org/emoji/emoji-frequency/))
+
+並び順は、使用頻度ランキングにある絵文字を先に、ランキングに無い絵文字を CLDR の並び (顔 → 人 → 動物 → 食べ物 …) で後ろに並べて決めます。
+肌の色・性別の違いはランキング上まとめて数えられているため、同じ順位として扱います。
+
+### 再生成の手順
+
+`emoji.properties` を変更したときは、対応表を再生成してコミットしてください。
+対応表に無いショートコードがあると、`./gradlew test` の `EmojiNameRegistryTest` が失敗します。
+
+```bash
+cd scripts/emoji-names
+pnpm install
+pnpm generate
+```

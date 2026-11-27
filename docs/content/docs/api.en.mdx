@@ -1,0 +1,70 @@
+---
+title: 🔌 HTTP API
+description: The stamp API served through MineAuth
+---
+
+## 🧭 Overview
+
+When [MineAuth](https://github.com/morinoparty/MineAuth) is installed, MineStamp registers an HTTP API for stamp information under `/api/v1/plugins/minestamp`.
+Without MineAuth, the API is not registered.
+
+| Method | Path | Auth | Returns |
+| --- | --- | --- | --- |
+| GET | `/stamps` | Required | Stamps owned by the authenticated player (including default stamps) |
+| GET | `/stamps/all` | None | Every stamp on the server |
+
+## 📦 Responses
+
+`/stamps` returns `{ "uuid": string, "stamps": StampData[] }` and `/stamps/all` returns `{ "stamps": StampData[] }`.
+
+### StampData
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `shortCode` | string | The stamp shortcode, used as the `/stamp` command argument (for example `:pizza:` or `!logo.png`) |
+| `type` | `"EMOJI"` \| `"IMAGE"` | The stamp type |
+| `emoji` | string \| null | The fully qualified emoji (with FE0F), for example `🍕` |
+| `nameJa` | string \| null | Japanese name, for example `ピザ` |
+| `nameEn` | string \| null | English name, for example `pizza` |
+| `sortOrder` | number \| null | Popularity order. 0 is the most frequently used emoji |
+
+`emoji`, `nameJa`, `nameEn` and `sortOrder` are newer fields.
+Only emoji stamps have values; for image stamps they are `null` (or omitted, depending on MineAuth's serializer settings).
+The existing fields (`shortCode` and `type`) keep their meaning, so clients that ignore the new fields keep working.
+
+```json
+{
+  "stamps": [
+    { "shortCode": ":thinking-face:", "type": "EMOJI", "emoji": "🤔", "nameJa": "考える顔", "nameEn": "thinking face", "sortOrder": 34 },
+    { "shortCode": ":cucumber:", "type": "EMOJI", "emoji": "🥒", "nameJa": "キュウリ", "nameEn": "cucumber", "sortOrder": 1026 },
+    { "shortCode": "!logo.png", "type": "IMAGE", "emoji": null, "nameJa": null, "nameEn": null, "sortOrder": null }
+  ]
+}
+```
+
+### Order
+
+Both endpoints return emoji stamps first in ascending `sortOrder` (most used first), followed by image stamps in shortcode order.
+
+## 🗂️ Emoji name and order table
+
+Names and orders come from `src/main/resources/emoji-names.json`, which is bundled with the plugin.
+`scripts/emoji-names/generate.mjs` generates the table from the data below, and the result is committed. The Gradle build does not generate it, so building needs neither Node.js nor network access.
+
+- `src/main/resources/emoji.properties` (MineStamp's emoji definitions)
+- [emojibase-data](https://emojibase.dev/) (CLDR Japanese and English names, and fully qualified emoji)
+- `scripts/emoji-names/data/unicode-emoji-frequency-2019.txt` ([Unicode emoji frequency](https://home.unicode.org/emoji/emoji-frequency/))
+
+Emoji in the frequency ranking come first in ranking order; the rest follow in CLDR order (faces → people → animals → food …).
+The ranking counts skin-tone and gender variants together, so those variants share the rank of their base emoji.
+
+### Regenerating
+
+After changing `emoji.properties`, regenerate the table and commit it.
+If a shortcode is missing from the table, `EmojiNameRegistryTest` in `./gradlew test` fails.
+
+```bash
+cd scripts/emoji-names
+pnpm install
+pnpm generate
+```

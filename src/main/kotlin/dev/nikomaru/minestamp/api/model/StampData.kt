@@ -9,25 +9,56 @@
 
 package dev.nikomaru.minestamp.api.model
 
-import dev.nikomaru.minestamp.stamp.Stamp
+import dev.nikomaru.minestamp.stamp.name.EmojiNameRegistry
 import kotlinx.serialization.Serializable
 
 /**
  * スタンプ1件分のレスポンス
+ *
+ * emoji・nameJa・nameEn・sortOrder は後から追加した項目で、絵文字スタンプのみ値を持つ。
+ * 画像スタンプや対応表にない絵文字ではnullになる（既存の項目は変更しない）。
+ *
+ * @property shortCode スタンプのshortCode（コマンド引数に使う値）
+ * @property type スタンプの種別
+ * @property emoji 完全修飾（FE0F付き）の絵文字
+ * @property nameJa 日本語名
+ * @property nameEn 英語名
+ * @property sortOrder よく使われる順の並び順（0が最も多い）
  */
 @Serializable
 data class StampData(
     val shortCode: String,
-    val type: StampType
+    val type: StampType,
+    val emoji: String? = null,
+    val nameJa: String? = null,
+    val nameEn: String? = null,
+    val sortOrder: Int? = null
 ) {
     companion object {
         /**
-         * StampをレスポンスDTOへ変換する
+         * shortCodeからレスポンスDTOを作る
+         *
+         * MineAuthから呼ばれるハンドラーがデフォルト引数用の合成コンストラクタを参照しないよう、
+         * 生成はこの関数に集め、コンストラクタには全ての引数を渡す。
+         *
+         * @param shortCode スタンプのshortCode
+         * @param names 絵文字の対応表
+         * @return レスポンスDTO
          */
-        fun from(stamp: Stamp): StampData =
-            StampData(
-                shortCode = stamp.shortCode,
-                type = if (stamp.shortCode.startsWith("!")) StampType.IMAGE else StampType.EMOJI
-            )
+        fun of(
+            shortCode: String,
+            names: EmojiNameRegistry
+        ): StampData {
+            val type = if (shortCode.startsWith("!")) StampType.IMAGE else StampType.EMOJI
+            // 画像スタンプは対応表を引かない
+            val entry = if (type == StampType.EMOJI) names[shortCode] else null
+            return StampData(shortCode, type, entry?.emoji, entry?.ja, entry?.en, entry?.order)
+        }
+
+        /**
+         * よく使われる順（sortOrderの昇順、値のないものはshortCode順で後ろ）の比較器
+         */
+        val POPULARITY_ORDER: Comparator<StampData> =
+            compareBy<StampData, Int?>(nullsLast()) { it.sortOrder }.thenBy { it.shortCode }
     }
 }

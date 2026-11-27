@@ -36,6 +36,16 @@ abstract class AbstractPlayerStampManager {
     }
 
     /**
+     * ログアウトしたプレイヤーのデータをメモリから破棄する。保存データには触れない。
+     *
+     * @param uuid 対象プレイヤーのUUID
+     */
+    fun unload(uuid: UUID) {
+        playerEmoji.remove(uuid)
+        playerShortCodes.remove(uuid)
+    }
+
+    /**
      * 保存済みの生shortCodeをStampへ解決する。メモリ上のデータには一切書き込まない。
      * 解決できないコードは警告を出して除外する（保存データからは消さない）。
      *

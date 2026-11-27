@@ -16,8 +16,6 @@ import dev.nikomaru.minestamp.player.AbstractPlayerStampManager
 import dev.nikomaru.minestamp.stamp.EmojiStamp
 import dev.nikomaru.minestamp.stamp.Stamp
 import dev.nikomaru.minestamp.stamp.StampManager
-import dev.nikomaru.minestamp.stamp.name.EmojiNameRegistry
-import dev.nikomaru.minestamp.utils.LangUtils
 import org.bukkit.command.CommandSender
 import org.incendo.cloud.context.CommandContext
 import org.incendo.cloud.context.CommandInput
@@ -106,17 +104,10 @@ class StampArgumentParser<CommandSender> :
         // cloud の既定フィルタは前方一致相当のため、名前の一部 ("sleeping" 等) でも
         // 候補が出るようにサーバー側で部分一致 (contains) フィルタを行う。
         // クライアントは送られた候補をそのまま表示するので、ここで制御できる。
-        // 候補の文字列 (絵文字 + shortCode) はコマンド引数としてそのまま使うため変えず、
-        // 送信者のロケールの名前 ("ピザ" / "pizza" 等) でも検索できるようにする
         val query = input.lastRemainingToken().lowercase()
-        if (query.isEmpty()) return candidates.map { Suggestion.suggestion(it) }
-        val names = get<EmojiNameRegistry>()
-        val locale = (sender as? org.bukkit.entity.Player)?.locale() ?: LangUtils.serverLocale
         return candidates
-            .filter { candidate ->
-                val name = names.name(stripEmojiPrefix(candidate), locale, LangUtils.serverLocale)
-                candidate.lowercase().contains(query) || name?.lowercase()?.contains(query) == true
-            }.map { Suggestion.suggestion(it) }
+            .filter { query.isEmpty() || it.lowercase().contains(query) }
+            .map { Suggestion.suggestion(it) }
     }
 
     override fun parse(
